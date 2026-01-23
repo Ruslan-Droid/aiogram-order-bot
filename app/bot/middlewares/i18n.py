@@ -7,7 +7,6 @@ from aiogram.types import TelegramObject, User
 from fluentogram import TranslatorHub
 
 from app.infrastructure.database.models.user import UserModel
-from app.infrastructure.database.models.group import GroupModel
 
 logger = logging.getLogger(__name__)
 
@@ -19,14 +18,10 @@ class TranslatorRunnerMiddleware(BaseMiddleware):
             event: TelegramObject,
             data: Dict[str, Any],
     ) -> Any:
-        group_row: GroupModel = data.get("group_row")
         user_row: UserModel = data.get("user_row")
         default_locale = data.get("default_locale")
 
-        if group_row and group_row.language_code:
-            locale = group_row.language_code
-            logger.debug("Using group language: %s for group %s", locale, group_row.group_telegram_id)
-        elif user_row and user_row.language_code:
+        if user_row and user_row.language_code:
             locale = user_row.language_code
             logger.debug("Using user language: %s for user %s", locale, user_row.telegram_id)
         else:

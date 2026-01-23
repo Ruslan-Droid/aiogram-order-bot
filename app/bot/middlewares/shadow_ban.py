@@ -24,7 +24,7 @@ class ShadowBanMiddleware(BaseMiddleware):
             )
             return await handler(event, data)
 
-        if user_row.is_banned:
+        if user_row.role == "ban":
             logger.warning("Shadow-banned user tried to interact: %d", user_row.telegram_id)
             if event.callback_query:
                 await event.callback_query.answer()

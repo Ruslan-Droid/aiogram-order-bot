@@ -1,4 +1,3 @@
-import asyncio
 import logging
 import redis
 
@@ -9,7 +8,7 @@ from aiogram.filters import ExceptionTypeFilter
 from aiogram.fsm.storage.base import DefaultKeyBuilder
 from aiogram.fsm.storage.redis import RedisStorage
 from aiogram.types import ChatAdministratorRights
-from aiogram.utils.i18n import SimpleI18nMiddleware
+
 
 from aiogram_dialog import setup_dialogs
 from aiogram_dialog.api.entities import DIALOG_EVENT_NAME
@@ -17,12 +16,11 @@ from aiogram_dialog.api.exceptions import UnknownIntent, UnknownState
 from fluentogram import TranslatorHub
 
 from app.bot.dialogs.flows import dialogs
-from app.bot.handlers import routers, commands_router, user_status_router, groups_router
+from app.bot.handlers import routers
 from app.bot.handlers.errors import on_unknown_intent, on_unknown_state
 from app.bot.i18n.translator_hub import create_translator_hub
 from app.bot.middlewares.database import DbSessionMiddleware
 from app.bot.middlewares.get_user import GetUserMiddleware
-from app.bot.middlewares.get_group import GetGroupMiddleware
 from app.bot.middlewares.i18n import TranslatorRunnerMiddleware
 from app.bot.middlewares.shadow_ban import ShadowBanMiddleware
 
@@ -102,7 +100,6 @@ async def main():
     logger.info("Including  middlewares")
     dp.update.outer_middleware(DbSessionMiddleware(async_session_maker))
     dp.update.outer_middleware(GetUserMiddleware())
-    dp.update.outer_middleware(GetGroupMiddleware())
     dp.update.outer_middleware(ShadowBanMiddleware())
     dp.update.outer_middleware(TranslatorRunnerMiddleware())
 
