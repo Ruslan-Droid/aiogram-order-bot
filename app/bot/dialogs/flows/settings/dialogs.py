@@ -10,7 +10,7 @@ from app.bot.dialogs.flows.settings.handlers import (
 )
 from app.bot.dialogs.flows.settings.states import SettingsSG
 
-settings_dialog = Dialog(
+settings_language_dialog = Dialog(
     Window(
         Format("{set_lang}"),
         ScrollingGroup(

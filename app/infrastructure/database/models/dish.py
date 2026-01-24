@@ -7,7 +7,7 @@ from app.infrastructure.database.models import Base
 
 if TYPE_CHECKING:
     from app.infrastructure.database.models.category import CategoryModel
-    from app.infrastructure.database.models.delivery_order import DeliveryOrder, OrderItemModel
+    from app.infrastructure.database.models.delivery_order import DeliveryOrderModel, OrderItemModel
     from app.infrastructure.database.models.cart import CartModel, CartItemModel
 
 
@@ -39,7 +39,7 @@ class DishModel(Base):
         viewonly=True
     )
 
-    orders: Mapped[list["DeliveryOrder"]] = relationship(
+    orders: Mapped[list["DeliveryOrderModel"]] = relationship(
         secondary="order_items",
         back_populates="dishes",
         viewonly=True

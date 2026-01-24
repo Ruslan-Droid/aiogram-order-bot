@@ -7,10 +7,11 @@ from aiogram_dialog import DialogManager, StartMode
 from fluentogram import TranslatorRunner
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.bot.dialogs.flows.main_menu.states import MainMenuSG
 from app.bot.dialogs.flows.settings.states import SettingsSG
-from app.bot.dialogs.flows.start.states import StartSG
 from app.bot.filters.chat_type_filters import ChatTypeFilterMessage, ChatTypeFilterCallback
 from app.bot.keyboards.inline_keyboards import get_help_keyboard
+from app.infrastructure.database.enums.user_roles import UserRole
 from app.infrastructure.database.models.user import UserModel
 from app.infrastructure.database.query.user_queries import UserRepository
 from app.bot.keyboards.menu_button import get_main_menu_commands
@@ -45,8 +46,21 @@ async def command_start_handler(
             type=BotCommandScopeType.CHAT, chat_id=message.from_user.id
         ),
     )
+    if user_row.role == UserRole.UNKNOWN:
+        username = message.from_user.full_name or message.from_user.username or i18n.stranger()
+        await message.answer(i18n.bot.description(username=username))
+        await dialog_manager.start(state=MainMenuSG.menu, mode=StartMode.RESET_STACK)
+    else:
+        await dialog_manager.start(state=MainMenuSG.menu, mode=StartMode.RESET_STACK)
 
-    await dialog_manager.start(state=StartSG.start, mode=StartMode.RESET_STACK)
+
+@commands_router.message(Command("main_menu"))
+async def command_main_menu_handler(
+        message: Message,
+        dialog_manager: DialogManager,
+        bot: Bot,
+) -> None:
+    await dialog_manager.start(state=MainMenuSG.menu)
 
 
 @commands_router.message(Command("help"))

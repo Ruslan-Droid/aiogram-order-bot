@@ -36,7 +36,7 @@ class UserRepository:
             last_name: str | None,
             language_code: str | None = "en",
             is_active: bool = True,
-            role: UserRole = UserRole.MEMBER,
+            role: UserRole = UserRole.UNKNOWN,
     ) -> UserModel:
         insert_stmt = pg_insert(UserModel).values(
             telegram_id=telegram_id,

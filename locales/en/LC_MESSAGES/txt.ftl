@@ -1,5 +1,8 @@
-start-hello = Hello, { $username }!
-              {""}
+bot-description = Hello, { $username }!
+
+    You are currently not logged in.
+
+    Once authorized by the administrator, you will receive a notification and will be able to place orders.
 
 help-command =
     The following commands are available in the bot:
@@ -10,9 +13,7 @@ help-command =
 
     Project on Github: https://github.com/Ruslan-Droid/aiogram_bot_template
 
-bot-description = This is a bot template created by <b>Ruslan-Droid</b>.
 
-                 /help
 
 stranger = Stranger
 

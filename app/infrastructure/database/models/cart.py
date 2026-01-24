@@ -6,7 +6,7 @@ from app.infrastructure.database.models import Base
 
 if TYPE_CHECKING:
     from app.infrastructure.database.models.user import UserModel
-    from app.infrastructure.database.models.delivery_order import DeliveryOrder
+    from app.infrastructure.database.models.delivery_order import DeliveryOrderModel
     from app.infrastructure.database.models.restaurant import RestaurantModel
     from app.infrastructure.database.models.dish import DishModel
 
@@ -22,7 +22,7 @@ class CartModel(Base):
 
     user: Mapped["UserModel"] = relationship(back_populates="carts")
     restaurant: Mapped["RestaurantModel"] = relationship()
-    delivery_order: Mapped["DeliveryOrder"] = relationship(back_populates="carts")
+    delivery_order: Mapped["DeliveryOrderModel"] = relationship(back_populates="carts")
 
     item_associations: Mapped[list["CartItemModel"]] = relationship(
         back_populates="cart",

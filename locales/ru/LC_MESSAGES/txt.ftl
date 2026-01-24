@@ -1,5 +1,8 @@
-start-hello = Привет, { $username }!
-              {""}
+bot-description = Привет, { $username }!
+
+    В данный момент вы не авторизованы.
+
+    После авторизации администратором вы получите уведомление и сможете делать заказы.
 
 help-command =
     В боте доступны следующие команды:
@@ -10,9 +13,7 @@ help-command =
 
     Проект на github: https://github.com/Ruslan-Droid/aiogram_bot_template
 
-bot-description = Это шаблон бота, написанный <b>Ruslan-Droid</b>.
 
-                 /help
 
 stranger = Странник
 

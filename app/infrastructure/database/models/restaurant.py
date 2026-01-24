@@ -6,7 +6,7 @@ from app.infrastructure.database.models import Base
 
 if TYPE_CHECKING:
     from app.infrastructure.database.models.category import CategoryModel
-    from app.infrastructure.database.models.delivery_order import DeliveryOrder
+    from app.infrastructure.database.models.delivery_order import DeliveryOrderModel
 
 
 class RestaurantModel(Base):
@@ -19,12 +19,12 @@ class RestaurantModel(Base):
     categories: Mapped[list["CategoryModel"]] = relationship(
         back_populates="restaurant",
         cascade="all, delete-orphan",
-        order_by="Category.display_order"
+        order_by="CategoryModel.display_order"
     )
 
-    orders: Mapped[list["DeliveryOrder"]] = relationship(
+    orders: Mapped[list["DeliveryOrderModel"]] = relationship(
         back_populates="restaurant",
-        order_by="DeliveryOrder.created_at.desc()"
+        order_by="DeliveryOrderModel.created_at.desc()"
     )
 
     def __repr__(self) -> str:

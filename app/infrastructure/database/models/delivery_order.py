@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from app.infrastructure.database.models.cart import CartModel
 
 
-class DeliveryOrder(Base):
+class DeliveryOrderModel(Base):
     __tablename__ = "delivery_orders"
 
     restaurant_id: Mapped[int] = mapped_column(ForeignKey("restaurants.id"))
@@ -78,6 +78,6 @@ class OrderItemModel(Base):
     user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
 
     # Relationships
-    order: Mapped["DeliveryOrder"] = relationship(back_populates="item_associations")
+    order: Mapped["DeliveryOrderModel"] = relationship(back_populates="item_associations")
     dish: Mapped["DishModel"] = relationship(back_populates="order_associations")
     user: Mapped["UserModel"] = relationship()

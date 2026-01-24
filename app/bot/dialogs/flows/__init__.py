@@ -1,9 +1,19 @@
-from .settings.dialogs import settings_dialog
-from .start.dialogs import start_dialog
+from .settings.dialogs import settings_language_dialog
+from .main_menu.dialogs import main_menu_dialog
+# from .menu_view.dialogs import menu_dialog
+from .delivery_requests.dialogs import delivery_dialog
+# from .cart_view.dialogs import cart_dialog
+# from .roles_management.dialogs import roles_dialog
+# from .menu_settings.dialogs import menu_settings_dialog
 
 __all__ = ["dialogs"]
 
 dialogs = [
-    settings_dialog,
-    start_dialog,
+    settings_language_dialog,
+    main_menu_dialog,
+    # menu_dialog,
+    delivery_dialog,
+    # cart_dialog,
+    # roles_dialog,
+    # menu_settings_dialog
 ]

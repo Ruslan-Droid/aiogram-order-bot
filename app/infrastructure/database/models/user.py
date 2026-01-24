@@ -11,7 +11,7 @@ from sqlalchemy.dialects.postgresql import ENUM as PgEnum
 
 if TYPE_CHECKING:
     from app.infrastructure.database.models.cart import CartModel
-    from app.infrastructure.database.models.delivery_order import DeliveryOrder
+    from app.infrastructure.database.models.delivery_order import DeliveryOrderModel
 
 
 class UserModel(Base):
@@ -30,6 +30,7 @@ class UserModel(Base):
     role: Mapped[UserRole] = mapped_column(PgEnum(UserRole, name="user_role"), default=UserRole.UNKNOWN)
     is_active: Mapped[bool] = mapped_column(default=True)
     phone_number: Mapped[str | None] = mapped_column(String(20))
+
     preferred_bank: Mapped[PaymentMethod | None] = mapped_column(
         PgEnum(PaymentMethod, name="payment_method"),
         default=PaymentMethod.ALFA
@@ -39,18 +40,18 @@ class UserModel(Base):
     carts: Mapped[list["CartModel"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
-        order_by="Cart.created_at.desc()"
+        order_by="CartModel.created_at.desc()"
     )
-    created_orders: Mapped[list["DeliveryOrder"]] = relationship(
+    created_orders: Mapped[list["DeliveryOrderModel"]] = relationship(
         back_populates="creator",
-        foreign_keys="[DeliveryOrder.creator_id]",
-        order_by="DeliveryOrder.created_at.desc()"
+        foreign_keys="[DeliveryOrderModel.creator_id]",
+        order_by="DeliveryOrderModel.created_at.desc()"
     )
 
-    assigned_orders: Mapped[list["DeliveryOrder"]] = relationship(
+    assigned_orders: Mapped[list["DeliveryOrderModel"]] = relationship(
         back_populates="delivery_person",
-        foreign_keys="[DeliveryOrder.delivery_person_id]",
-        order_by="DeliveryOrder.created_at.desc()"
+        foreign_keys="[DeliveryOrderModel.delivery_person_id]",
+        order_by="DeliveryOrderModel.created_at.desc()"
     )
 
     @property
@@ -64,21 +65,6 @@ class UserModel(Base):
         if self.username:
             return f"@{self.username}"
         return f'<a href="tg://user?id={self.telegram_id}">{self.full_name}</a>'
-
-    @validates("phone_number")
-    def validate_phone_number(self, phone_number: str | None) -> str | None:
-        if phone_number is None:
-            return None
-
-        # Удаляем все нецифровые символы
-        cleaned = re.sub(r'\D', '', phone_number)
-
-        if len(cleaned) == 11 and cleaned.startswith(('7', '8')):
-            return f'+7{cleaned[1:]}'
-        elif len(cleaned) == 10:
-            return f'+7{cleaned}'
-        else:
-            raise ValueError("Неверный формат номера телефона")
 
     def __repr__(self) -> str:
         return f"User(id={self.id}, username=@{self.username}, role={self.role.value})"

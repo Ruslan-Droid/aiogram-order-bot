@@ -4,6 +4,8 @@ from collections.abc import Awaitable, Callable
 
 from aiogram import BaseMiddleware
 from aiogram.types import TelegramObject
+
+from app.infrastructure.database.enums.user_roles import UserRole
 from app.infrastructure.database.models.user import UserModel
 
 logger = logging.getLogger(__name__)
@@ -24,7 +26,7 @@ class ShadowBanMiddleware(BaseMiddleware):
             )
             return await handler(event, data)
 
-        if user_row.role == "ban":
+        if user_row.role in [UserRole.UNKNOWN, UserRole.BANNED]:
             logger.warning("Shadow-banned user tried to interact: %d", user_row.telegram_id)
             if event.callback_query:
                 await event.callback_query.answer()

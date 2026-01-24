@@ -1,11 +1,11 @@
 import logging
-from datetime import datetime
+from datetime import datetime, date, timedelta
 
-from sqlalchemy import select, update, func
+from sqlalchemy import select, update, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.infrastructure.database.models.delivery_order import DeliveryOrder, OrderItemModel
+from app.infrastructure.database.models.delivery_order import DeliveryOrderModel, OrderItemModel
 from app.infrastructure.database.enums.order_statuses import OrderStatus
 from app.infrastructure.database.enums.payment_methods import PaymentMethod
 
@@ -16,16 +16,16 @@ class OrderRepository:
     def __init__(self, session: AsyncSession):
         self.session = session
 
-    async def get_order_by_id(self, order_id: int) -> DeliveryOrder | None:
+    async def get_order_by_id(self, order_id: int) -> DeliveryOrderModel | None:
         try:
             stmt = (
-                select(DeliveryOrder)
-                .filter(DeliveryOrder.id == order_id)
+                select(DeliveryOrderModel)
+                .filter(DeliveryOrderModel.id == order_id)
                 .options(
-                    selectinload(DeliveryOrder.item_associations).selectinload(OrderItemModel.dish),
-                    selectinload(DeliveryOrder.restaurant),
-                    selectinload(DeliveryOrder.creator),
-                    selectinload(DeliveryOrder.delivery_person)
+                    selectinload(DeliveryOrderModel.item_associations).selectinload(OrderItemModel.dish),
+                    selectinload(DeliveryOrderModel.restaurant),
+                    selectinload(DeliveryOrderModel.creator),
+                    selectinload(DeliveryOrderModel.delivery_person)
                 )
             )
             order = await self.session.scalar(stmt)
@@ -40,20 +40,20 @@ class OrderRepository:
             logger.error("Error getting order by id %s: %s", order_id, str(e))
             raise
 
-    async def get_active_orders_by_restaurant(self, restaurant_id: int) -> list[DeliveryOrder]:
+    async def get_active_orders_by_restaurant(self, restaurant_id: int) -> list[DeliveryOrderModel]:
         try:
             stmt = (
-                select(DeliveryOrder)
+                select(DeliveryOrderModel)
                 .filter(
-                    DeliveryOrder.restaurant_id == restaurant_id,
-                    DeliveryOrder.status.in_([
+                    DeliveryOrderModel.restaurant_id == restaurant_id,
+                    DeliveryOrderModel.status.in_([
                         OrderStatus.COLLECTING,
                     ])
                 )
-                .order_by(DeliveryOrder.created_at)
+                .order_by(DeliveryOrderModel.created_at)
                 .options(
-                    selectinload(DeliveryOrder.item_associations).selectinload(OrderItemModel.dish),
-                    selectinload(DeliveryOrder.creator)
+                    selectinload(DeliveryOrderModel.item_associations).selectinload(OrderItemModel.dish),
+                    selectinload(DeliveryOrderModel.creator)
                 )
             )
             result = await self.session.scalars(stmt)
@@ -67,19 +67,19 @@ class OrderRepository:
                          restaurant_id, str(e))
             raise
 
-    async def get_orders_by_user(self, user_id: int, limit: int = 10) -> list[DeliveryOrder]:
+    async def get_orders_by_user(self, user_id: int, limit: int = 10) -> list[DeliveryOrderModel]:
         try:
             stmt = (
-                select(DeliveryOrder)
+                select(DeliveryOrderModel)
                 .filter(
-                    (DeliveryOrder.creator_id == user_id) |
-                    (DeliveryOrder.delivery_person_id == user_id)
+                    (DeliveryOrderModel.creator_id == user_id) |
+                    (DeliveryOrderModel.delivery_person_id == user_id)
                 )
-                .order_by(DeliveryOrder.created_at.desc())
+                .order_by(DeliveryOrderModel.created_at.desc())
                 .limit(limit)
                 .options(
-                    selectinload(DeliveryOrder.item_associations).selectinload(OrderItemModel.dish),
-                    selectinload(DeliveryOrder.restaurant)
+                    selectinload(DeliveryOrderModel.item_associations).selectinload(OrderItemModel.dish),
+                    selectinload(DeliveryOrderModel.restaurant)
                 )
             )
             result = await self.session.scalars(stmt)
@@ -98,9 +98,9 @@ class OrderRepository:
             phone_number: str | None = None,
             payment_method: PaymentMethod | None = None,
             notes: str | None = None
-    ) -> DeliveryOrder:
+    ) -> DeliveryOrderModel:
         try:
-            order = DeliveryOrder(
+            order = DeliveryOrderModel(
                 restaurant_id=restaurant_id,
                 creator_id=creator_id,
                 delivery_person_id=creator_id,  # по умолчанию создатель является доставщиком
@@ -119,6 +119,17 @@ class OrderRepository:
         except Exception as e:
             await self.session.rollback()
             logger.error("Error creating order: %s", str(e))
+            raise
+
+    async def delete_order(self, order_id: int) -> None:
+        try:
+            stmt = delete(DeliveryOrderModel).where(DeliveryOrderModel.id == order_id)
+            await self.session.execute(stmt)
+            logger.info("Deleted order: id=%s", order_id)
+
+        except Exception as e:
+            await self.session.rollback()
+            logger.error("Error deleting order: %s", str(e))
             raise
 
     async def add_items_to_order(
@@ -158,8 +169,8 @@ class OrderRepository:
             )
 
             stmt = (
-                update(DeliveryOrder)
-                .where(DeliveryOrder.id == order_id)
+                update(DeliveryOrderModel)
+                .where(DeliveryOrderModel.id == order_id)
                 .values(total_amount=subquery)
             )
             await self.session.execute(stmt)
@@ -171,8 +182,8 @@ class OrderRepository:
     async def assign_delivery_person(self, order_id: int, delivery_person_id: int) -> None:
         try:
             stmt = (
-                update(DeliveryOrder)
-                .where(DeliveryOrder.id == order_id)
+                update(DeliveryOrderModel)
+                .where(DeliveryOrderModel.id == order_id)
                 .values(delivery_person_id=delivery_person_id)
             )
             await self.session.execute(stmt)
@@ -195,15 +206,15 @@ class OrderRepository:
             # Общая статистика по заказам
             stmt = (
                 select(
-                    func.count(DeliveryOrder.id).label('total_orders'),
-                    func.sum(DeliveryOrder.total_amount).label('total_revenue'),
-                    func.avg(DeliveryOrder.total_amount).label('avg_order_value')
+                    func.count(DeliveryOrderModel.id).label('total_orders'),
+                    func.sum(DeliveryOrderModel.total_amount).label('total_revenue'),
+                    func.avg(DeliveryOrderModel.total_amount).label('avg_order_value')
                 )
                 .filter(
-                    DeliveryOrder.restaurant_id == restaurant_id,
-                    DeliveryOrder.created_at >= start_date,
-                    DeliveryOrder.created_at <= end_date,
-                    DeliveryOrder.status == OrderStatus.DELIVERED
+                    DeliveryOrderModel.restaurant_id == restaurant_id,
+                    DeliveryOrderModel.created_at >= start_date,
+                    DeliveryOrderModel.created_at <= end_date,
+                    DeliveryOrderModel.status == OrderStatus.DELIVERED
                 )
             )
             result = await self.session.execute(stmt)
@@ -212,15 +223,15 @@ class OrderRepository:
             # Статистика по статусам
             status_stmt = (
                 select(
-                    DeliveryOrder.status,
-                    func.count(DeliveryOrder.id).label('count')
+                    DeliveryOrderModel.status,
+                    func.count(DeliveryOrderModel.id).label('count')
                 )
                 .filter(
-                    DeliveryOrder.restaurant_id == restaurant_id,
-                    DeliveryOrder.created_at >= start_date,
-                    DeliveryOrder.created_at <= end_date
+                    DeliveryOrderModel.restaurant_id == restaurant_id,
+                    DeliveryOrderModel.created_at >= start_date,
+                    DeliveryOrderModel.created_at <= end_date
                 )
-                .group_by(DeliveryOrder.status)
+                .group_by(DeliveryOrderModel.status)
             )
             status_result = await self.session.execute(status_stmt)
             status_stats = {row.status: row.count for row in status_result}
@@ -235,4 +246,61 @@ class OrderRepository:
         except Exception as e:
             logger.error("Error getting order statistics for restaurant %s: %s",
                          restaurant_id, str(e))
+            raise
+
+    async def get_orders_by_date(
+            self,
+            order_date: date,
+            statuses: list[OrderStatus] | None = None,
+            restaurant_id: int | None = None,
+            creator_id: int | None = None,
+            include_inactive: bool = False
+    ) -> list[DeliveryOrderModel]:
+        try:
+            # Определяем временные границы для дня
+            start_datetime = datetime.combine(order_date, datetime.min.time())
+            end_datetime = datetime.combine(order_date + timedelta(days=1), datetime.min.time())
+
+            # Базовый запрос с загрузкой связанных данных
+            stmt = select(DeliveryOrderModel).where(
+                DeliveryOrderModel.created_at >= start_datetime,
+                DeliveryOrderModel.created_at < end_datetime
+            )
+
+            # Фильтр по статусам
+            if statuses:
+                stmt = stmt.where(DeliveryOrderModel.status.in_(statuses))
+            else:
+                # По умолчанию не показываем завершенные заказы
+                if not include_inactive:
+                    stmt = stmt.where(
+                        DeliveryOrderModel.status != OrderStatus.DELIVERED,
+                        DeliveryOrderModel.status != OrderStatus.CANCELLED
+                    )
+
+            # Фильтр по ресторану
+            if restaurant_id:
+                stmt = stmt.where(DeliveryOrderModel.restaurant_id == restaurant_id)
+
+            # Фильтр по создателю
+            if creator_id:
+                stmt = stmt.where(DeliveryOrderModel.creator_id == creator_id)
+
+            # Загружаем связанные данные
+            stmt = stmt.options(
+                selectinload(DeliveryOrderModel.restaurant),
+                selectinload(DeliveryOrderModel.creator),
+                selectinload(DeliveryOrderModel.delivery_person),
+                selectinload(DeliveryOrderModel.item_associations).selectinload(DeliveryOrderModel.dishes),
+                selectinload(DeliveryOrderModel.carts).selectinload(DeliveryOrderModel.item_associations)
+            )
+
+            # Сортировка по дате создания (новые сначала)
+            stmt = stmt.order_by(DeliveryOrderModel.created_at.desc())
+
+            result = await self.session.execute(stmt)
+            logger.info("Successfully fetched orders by date %s", order_date)
+            return list(result.scalars().all())
+        except Exception as e:
+            logger.error("Error getting order by date for  date %s: %s", order_date, str(e))
             raise

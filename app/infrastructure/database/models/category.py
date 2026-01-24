@@ -23,7 +23,7 @@ class CategoryModel(Base):
     dishes: Mapped[list["DishModel"]] = relationship(
         back_populates="category",
         cascade="all, delete-orphan",
-        order_by="Dish.display_order"
+        order_by="DishModel.display_order"
     )
 
     __table_args__ = (
