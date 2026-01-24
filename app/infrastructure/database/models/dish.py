@@ -11,11 +11,9 @@ if TYPE_CHECKING:
     from app.infrastructure.database.models.cart import CartModel, CartItemModel
 
 
-
 class DishModel(Base):
     __tablename__ = "dishes"
 
-    id: Mapped[int] = mapped_column(primary_key=True)
     name: Mapped[str] = mapped_column(String(255))
     price: Mapped[float] = mapped_column()
     display_order: Mapped[int] = mapped_column(default=0)

@@ -1,6 +1,8 @@
 from typing import TYPE_CHECKING
 
-from sqlalchemy import ForeignKey, String, DateTime, Index
+from datetime import datetime
+
+from sqlalchemy import ForeignKey, String, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.dialects.postgresql import ENUM as PgEnum
 
@@ -29,8 +31,8 @@ class DeliveryOrder(Base):
         PgEnum(PaymentMethod, name="payment_method")
     )
     total_amount: Mapped[float] = mapped_column(default=0.0)
-    collected_at: Mapped[DateTime | None] = mapped_column()
-    delivered_at: Mapped[DateTime | None] = mapped_column()
+    collected_at: Mapped[datetime | None] = mapped_column()
+    delivered_at: Mapped[datetime | None] = mapped_column()
     notes: Mapped[str | None] = mapped_column(String(255))  # дополнительные заметки
 
     # Relationships

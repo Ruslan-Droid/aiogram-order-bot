@@ -30,8 +30,10 @@ class UserModel(Base):
     role: Mapped[UserRole] = mapped_column(PgEnum(UserRole, name="user_role"), default=UserRole.UNKNOWN)
     is_active: Mapped[bool] = mapped_column(default=True)
     phone_number: Mapped[str | None] = mapped_column(String(20))
-    preferred_bank: Mapped[PaymentMethod | None] = mapped_column(PgEnum(PaymentMethod, name="payment_method"),
-                                                                 default=PaymentMethod.ALFA)
+    preferred_bank: Mapped[PaymentMethod | None] = mapped_column(
+        PgEnum(PaymentMethod, name="payment_method"),
+        default=PaymentMethod.ALFA
+    )
 
     # Relationships
     carts: Mapped[list["CartModel"]] = relationship(
@@ -39,7 +41,6 @@ class UserModel(Base):
         cascade="all, delete-orphan",
         order_by="Cart.created_at.desc()"
     )
-
     created_orders: Mapped[list["DeliveryOrder"]] = relationship(
         back_populates="creator",
         foreign_keys="[DeliveryOrder.creator_id]",
@@ -54,14 +55,12 @@ class UserModel(Base):
 
     @property
     def full_name(self) -> str:
-        """Возвращает полное имя пользователя"""
         if self.last_name:
             return f"{self.first_name} {self.last_name}"
         return self.first_name
 
     @property
     def mention(self) -> str:
-        """Возвращает упоминание пользователя в Telegram"""
         if self.username:
             return f"@{self.username}"
         return f'<a href="tg://user?id={self.telegram_id}">{self.full_name}</a>'

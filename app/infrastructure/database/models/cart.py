@@ -22,7 +22,7 @@ class CartModel(Base):
 
     user: Mapped["UserModel"] = relationship(back_populates="carts")
     restaurant: Mapped["RestaurantModel"] = relationship()
-    delivery_order: Mapped["DeliveryOrder" | None] = relationship(back_populates="carts")
+    delivery_order: Mapped["DeliveryOrder"] = relationship(back_populates="carts")
 
     item_associations: Mapped[list["CartItemModel"]] = relationship(
         back_populates="cart",
