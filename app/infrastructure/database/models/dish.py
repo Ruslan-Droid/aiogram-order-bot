@@ -1,17 +1,18 @@
-import typing
+from typing import TYPE_CHECKING
 
 from sqlalchemy import String, ForeignKey, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.database.models import Base
 
-if typing.TYPE_CHECKING:
-    from app.infrastructure.database.models.category import Category
-    from app.infrastructure.database.models.delivery_order import DeliveryOrder
-    from app.infrastructure.database.models.cart import Cart, CartItem
+if TYPE_CHECKING:
+    from app.infrastructure.database.models.category import CategoryModel
+    from app.infrastructure.database.models.delivery_order import DeliveryOrder, OrderItemModel
+    from app.infrastructure.database.models.cart import CartModel, CartItemModel
 
 
-class Dish(Base):
+
+class DishModel(Base):
     __tablename__ = "dishes"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -21,20 +22,20 @@ class Dish(Base):
 
     # Relationships
     category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"))
-    category: Mapped["Category"] = relationship(back_populates="dishes")
+    category: Mapped["CategoryModel"] = relationship(back_populates="dishes")
 
-    cart_associations: Mapped[list["CartItem"]] = relationship(
+    cart_associations: Mapped[list["CartItemModel"]] = relationship(
         back_populates="dish",
         cascade="all, delete-orphan"
     )
 
-    order_associations: Mapped[list["OrderItem"]] = relationship(
+    order_associations: Mapped[list["OrderItemModel"]] = relationship(
         back_populates="dish",
         cascade="all, delete-orphan"
     )
 
     # Many-to-many through associations
-    carts: Mapped[list["Cart"]] = relationship(
+    carts: Mapped[list["CartModel"]] = relationship(
         secondary="cart_items",
         back_populates="dishes",
         viewonly=True

@@ -1,4 +1,5 @@
 import re
+from typing import TYPE_CHECKING
 
 from sqlalchemy import BigInteger, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
@@ -7,6 +8,10 @@ from app.infrastructure.database.enums.payment_methods import PaymentMethod
 from app.infrastructure.database.enums.user_roles import UserRole
 from app.infrastructure.database.models.base_model import Base
 from sqlalchemy.dialects.postgresql import ENUM as PgEnum
+
+if TYPE_CHECKING:
+    from app.infrastructure.database.models.cart import CartModel
+    from app.infrastructure.database.models.delivery_order import DeliveryOrder
 
 
 class UserModel(Base):
@@ -29,7 +34,7 @@ class UserModel(Base):
                                                                  default=PaymentMethod.ALFA)
 
     # Relationships
-    carts: Mapped[list["Cart"]] = relationship(
+    carts: Mapped[list["CartModel"]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
         order_by="Cart.created_at.desc()"
@@ -62,7 +67,7 @@ class UserModel(Base):
         return f'<a href="tg://user?id={self.telegram_id}">{self.full_name}</a>'
 
     @validates("phone_number")
-    def validate_phone_number(self, key: str, phone_number: str | None) -> str | None:
+    def validate_phone_number(self, phone_number: str | None) -> str | None:
         if phone_number is None:
             return None
 

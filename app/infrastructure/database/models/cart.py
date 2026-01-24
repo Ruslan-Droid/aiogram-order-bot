@@ -1,10 +1,17 @@
+from typing import TYPE_CHECKING
 from sqlalchemy import ForeignKey, Index
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.database.models import Base
 
+if TYPE_CHECKING:
+    from app.infrastructure.database.models.user import UserModel
+    from app.infrastructure.database.models.delivery_order import DeliveryOrder
+    from app.infrastructure.database.models.restaurant import RestaurantModel
+    from app.infrastructure.database.models.dish import DishModel
 
-class Cart(Base):
+
+class CartModel(Base):
     __tablename__ = "carts"
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
@@ -13,17 +20,17 @@ class Cart(Base):
     is_active: Mapped[bool] = mapped_column(default=True)
     total_amount: Mapped[float] = mapped_column(default=0.0)
 
-    user: Mapped["User"] = relationship(back_populates="carts")
-    restaurant: Mapped["Restaurant"] = relationship()
+    user: Mapped["UserModel"] = relationship(back_populates="carts")
+    restaurant: Mapped["RestaurantModel"] = relationship()
     delivery_order: Mapped["DeliveryOrder" | None] = relationship(back_populates="carts")
 
-    item_associations: Mapped[list["CartItem"]] = relationship(
+    item_associations: Mapped[list["CartItemModel"]] = relationship(
         back_populates="cart",
         cascade="all, delete-orphan"
     )
 
     # Many-to-many through association
-    dishes: Mapped[list["Dish"]] = relationship(
+    dishes: Mapped[list["DishModel"]] = relationship(
         secondary="cart_items",
         back_populates="carts",
         viewonly=True
@@ -39,7 +46,7 @@ class Cart(Base):
         return sum(item.amount for item in self.item_associations)
 
 
-class CartItem(Base):
+class CartItemModel(Base):
     __tablename__ = "cart_items"
 
     cart_id: Mapped[int] = mapped_column(ForeignKey("carts.id"), primary_key=True)
@@ -48,5 +55,5 @@ class CartItem(Base):
     price_at_time: Mapped[float] = mapped_column()
 
     # Relationships
-    cart: Mapped["Cart"] = relationship(back_populates="item_associations")
-    dish: Mapped["Dish"] = relationship(back_populates="cart_associations")
+    cart: Mapped["CartModel"] = relationship(back_populates="item_associations")
+    dish: Mapped["DishModel"] = relationship(back_populates="cart_associations")

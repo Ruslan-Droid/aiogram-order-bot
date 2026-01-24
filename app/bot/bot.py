@@ -7,8 +7,6 @@ from aiogram.enums import ParseMode
 from aiogram.filters import ExceptionTypeFilter
 from aiogram.fsm.storage.base import DefaultKeyBuilder
 from aiogram.fsm.storage.redis import RedisStorage
-from aiogram.types import ChatAdministratorRights
-
 
 from aiogram_dialog import setup_dialogs
 from aiogram_dialog.api.entities import DIALOG_EVENT_NAME
@@ -27,29 +25,9 @@ from app.bot.middlewares.shadow_ban import ShadowBanMiddleware
 from app.infrastructure.database.db import async_session_maker
 from app.infrastructure.cache import get_redis_pool
 
-from app.services.scheduler.taskiq_broker import broker, redis_source
-
 from config.config import get_config
 
 logger = logging.getLogger(__name__)
-
-
-async def setup_bot_admin_rights(bot: Bot) -> None:
-    logger.info("Setting default bot admin rights")
-    bot_rights = ChatAdministratorRights(
-        is_anonymous=False,
-        can_manage_chat=True,
-        can_delete_messages=True,
-        can_manage_video_chats=False,
-        can_restrict_members=False,
-        can_promote_members=False,
-        can_change_info=False,
-        can_invite_users=False,
-        can_post_stories=False,
-        can_edit_stories=False,
-        can_delete_stories=False,
-    )
-    await bot.set_my_default_administrator_rights(rights=bot_rights, for_channels=False)
 
 
 async def main():
@@ -65,8 +43,6 @@ async def main():
 
     bot = Bot(token=config.bot.token,
               default=DefaultBotProperties(parse_mode=ParseMode(config.bot.parse_mode)))
-
-    await setup_bot_admin_rights(bot=bot)
 
     storage = RedisStorage(
         redis=redis_client,
@@ -85,7 +61,6 @@ async def main():
         bot_locales=sorted(config.i18n.locales),
         translator_hub=translator_hub,
         _cache_pool=cache_pool,
-        redis_source=redis_source,
     )
     logger.info("Registering error handlers")
     dp.errors.register(
@@ -125,11 +100,6 @@ async def main():
     dp.observers[DIALOG_EVENT_NAME].outer_middleware(ShadowBanMiddleware())
     dp.observers[DIALOG_EVENT_NAME].outer_middleware(TranslatorRunnerMiddleware())
 
-    if not broker.is_worker_process:
-        logger.info("Starting taskiq broker")
-        await broker.startup()
-
-    # Launch polling and delayed message consumer
     try:
         await dp.start_polling(
             bot,
@@ -140,6 +110,3 @@ async def main():
     finally:
         await cache_pool.close()
         logger.info("Connection to Redis closed")
-        if not broker.is_worker_process:
-            logger.info("Connection to taskiq-broker closed")
-            await broker.shutdown()
