@@ -14,7 +14,14 @@ async def get_restaurants(dialog_manager: DialogManager, **kwargs) -> dict:
 
     restaurants = await RestaurantRepository(session).get_all_active_restaurants()
 
-    return {"restaurants": [(rest.name, rest.id) for rest in restaurants]}
+    restaurants_list = [
+        {"id": rest.id, "name": rest.name} for rest in restaurants
+    ]
+
+    # Сохраняем список в dialog_data для использования в обработчике
+    dialog_manager.dialog_data["_restaurants_cache"] = restaurants_list
+
+    return {"restaurants": restaurants_list}
 
 
 async def get_today_orders(dialog_manager: DialogManager, **kwargs) -> dict:

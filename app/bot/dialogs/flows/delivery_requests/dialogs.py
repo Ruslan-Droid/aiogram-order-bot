@@ -9,7 +9,8 @@ from aiogram_dialog.widgets.input import TextInput
 from app.bot.dialogs.flows.delivery_requests.getters import get_restaurants, get_today_orders, \
     getter_create_enter_contact, getter_select_bank
 from app.bot.dialogs.flows.delivery_requests.handlers import create_order, delete_order, \
-    user_number_button_click, validate_phone, process_success_phone, process_error_phone, bank_selected
+    user_number_button_click, validate_phone, process_success_phone, process_error_phone, bank_selected, \
+    on_restaurant_selected
 from app.bot.dialogs.flows.delivery_requests.states import DeliverySG
 
 delivery_dialog = Dialog(
@@ -42,12 +43,11 @@ delivery_dialog = Dialog(
         Const("Выберите заведение для заявки:"),
         ScrollingGroup(
             Select(
-                Format("{item[0]}"),
+                Format("{item[name]}"),
                 id="select_restaurant",
-                item_id_getter=lambda x: x[1],
+                item_id_getter=lambda x: x["id"],
                 items="restaurants",
-                on_click=lambda c, w, m, i: m.update({"restaurant_id": i}) and m.switch_to(
-                    DeliverySG.create_enter_contact)
+                on_click=on_restaurant_selected,
             ),
             id="restaurants_group",
             width=1,
@@ -92,6 +92,11 @@ delivery_dialog = Dialog(
                 items="banks",  # Будет получено из геттера
                 on_click=bank_selected,  # Обработчик выбора банка
             )
+        ),
+        Button(
+            text=Const("Сохранить"),
+            id="save_button",
+            on_click=lambda x: x,
         ),
         Back(Const("⬅️ Назад")),
         getter=getter_select_bank,

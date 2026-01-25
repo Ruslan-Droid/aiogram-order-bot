@@ -11,39 +11,20 @@ from app.infrastructure.database.models import UserModel
 from app.infrastructure.database.query.order_queries import OrderRepository
 
 
-async def create_order(
+async def on_restaurant_selected(
         callback: CallbackQuery,
-        button: Button,
-        manager: DialogManager
+        button: Select,
+        dialog_manager: DialogManager,
+        item_id: int,
 ) -> None:
-    session = manager.middleware_data["session"]
-    user: UserModel = manager.middleware_data["user_row"]
+    dialog_manager.dialog_data.update({
+        "restaurant_id": dialog_manager.dialog_data["restaurant_id"],
+        "restaurant_name": dialog_manager.dialog_data["restaurant_name"]
+    })
+    print(dialog_manager.dialog_data["restaurant_id"])
+    print(dialog_manager.dialog_data["restaurant_name"])
 
-    order = await OrderRepository(session).create_order(
-        restaurant_id=manager.dialog_data["restaurant_id"],
-        creator_id=user.id,
-        phone_number=manager.dialog_data["phone"],
-        payment_method=manager.dialog_data["bank"]
-    )
-
-    # Отправка уведомлений всем активным пользователям
-    # TODO
-    # Здесь нужно реализовать рассылку
-
-    await callback.answer(f"✅ Заявка #{order.id} создана!", show_alert=True)
-    await manager.done()
-
-
-async def delete_order(
-        callback: CallbackQuery,
-        widget: Select, manager: DialogManager,
-        order_id: str
-) -> None:
-    session = manager.middleware_data["session"]
-
-    await OrderRepository(session).delete_order(int(order_id))
-    await callback.answer("✅ Заявка удалена!", show_alert=True)
-    await manager.switch_to(DeliverySG.delete_list)
+    await dialog_manager.switch_to(DeliverySG.create_enter_contact)
 
 
 async def user_number_button_click(
@@ -138,14 +119,43 @@ async def bank_selected(
     dialog_manager.current_context().dialog_data['bank'] = selected_bank.value
 
     # Можно сохранить предпочтение пользователя в БД
-    user: UserModel = dialog_manager.middleware_data.get("user_row")
-    if user:
-        # Сохраняем предпочитаемый банк
-        # user.preferred_bank = selected_bank.value
-        # await user.save()
-        pass
 
     await callback.answer(f"✅ Выбран банк: {selected_bank.value}")
 
     # Переходим к подтверждению заявки
     await dialog_manager.switch_to(DeliverySG.create_confirm)
+
+
+async def create_order(
+        callback: CallbackQuery,
+        button: Button,
+        manager: DialogManager
+) -> None:
+    session = manager.middleware_data["session"]
+    user: UserModel = manager.middleware_data["user_row"]
+
+    order = await OrderRepository(session).create_order(
+        restaurant_id=manager.dialog_data["restaurant_id"],
+        creator_id=user.id,
+        phone_number=manager.dialog_data["phone"],
+        payment_method=manager.dialog_data["bank"]
+    )
+
+    # Отправка уведомлений всем активным пользователям
+    # TODO
+    # Здесь нужно реализовать рассылку
+
+    await callback.answer(f"✅ Заявка #{order.id} создана!", show_alert=True)
+    await manager.done()
+
+
+async def delete_order(
+        callback: CallbackQuery,
+        widget: Select, manager: DialogManager,
+        order_id: str
+) -> None:
+    session = manager.middleware_data["session"]
+
+    await OrderRepository(session).delete_order(int(order_id))
+    await callback.answer("✅ Заявка удалена!", show_alert=True)
+    await manager.switch_to(DeliverySG.delete_list)
