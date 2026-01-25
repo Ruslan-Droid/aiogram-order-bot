@@ -215,6 +215,25 @@ class UserRepository:
             logger.error("Error updating user_role: %s", str(e))
             raise
 
+    async def update_users_roles(
+            self,
+            telegram_ids: list[int],
+            role: UserRole,
+    ) -> None:
+        try:
+            stmt = update(UserModel).where(
+                UserModel.telegram_id.in_(telegram_ids)
+            ).values(
+                role=role,
+            )
+            await self.session.execute(stmt)
+            await self.session.commit()
+            logger.info("Updated user roles for telegram ids: %s", telegram_ids)
+
+        except Exception as e:
+            logger.error("Error updating users_roles: %s", str(e))
+            raise
+
     async def get_users_by_role(
             self,
             role: UserRole,
