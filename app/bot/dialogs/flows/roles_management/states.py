@@ -1,12 +1,6 @@
-from aiogram.fsm.state import StatesGroup, State
+from aiogram.filters.state import State, StatesGroup
 
-
-class RolesSG(StatesGroup):
-    main = State()
-    users_list = State()
-    groups_list = State()
-    change_user_select = State()
-    change_user_role = State()
-    change_group_select = State()
-    change_group_role = State()
-    ban_user = State()
+class AdminPanelSG(StatesGroup):
+    pending_users = State()  # Список пользователей на авторизацию
+    change_role_input = State()  # Ввод ID для смены роли
+    change_role_select = State()  # Выбор новой роли

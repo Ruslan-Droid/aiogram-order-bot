@@ -8,7 +8,7 @@ logger = logging.getLogger(__name__)
 
 def get_main_menu_commands(i18n: TranslatorRunner):
     menu_commands = {
-        "/start_authentication": i18n.start.command.description(),
+        "/start": i18n.start.command.description(),
         "/lang": i18n.lang.command.description(),
         "/help": i18n.help.command.description(),
     }

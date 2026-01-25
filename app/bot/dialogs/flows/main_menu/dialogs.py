@@ -7,7 +7,7 @@ from app.bot.dialogs.flows.main_menu.states import MainMenuSG
 from app.bot.dialogs.flows.menu_view.states import MenuViewSG
 from app.bot.dialogs.flows.delivery_requests.states import DeliverySG
 from app.bot.dialogs.flows.cart_view.states import CartSG
-from app.bot.dialogs.flows.roles_management.states import RolesSG
+from app.bot.dialogs.flows.roles_management.states import AdminPanelSG
 from app.bot.dialogs.flows.menu_settings.states import MenuSettingsSG
 
 from app.bot.dialogs.utils.roles_utils import UserRole, role_required
@@ -35,7 +35,7 @@ main_menu_dialog = Dialog(
                 ),
                 # 🛒 Посмотреть заказ (Все пользователи)
                 Start(
-                    Const("🛒 Посмотреть заказ"),
+                    Const("🛒 Мои заказ"),
                     id="view_cart",
                     state=CartSG.view
                 ),
@@ -43,7 +43,7 @@ main_menu_dialog = Dialog(
                 Start(
                     Const("⚙️ Настроить права пользователей"),
                     id="manage_roles",
-                    state=RolesSG.main,
+                    state=AdminPanelSG.pending_users,
                     when=role_required(
                         [UserRole.ADMIN, UserRole.SUPER_ADMIN]
                     )

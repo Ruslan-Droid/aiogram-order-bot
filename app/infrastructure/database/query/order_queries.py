@@ -1,5 +1,6 @@
 import logging
 from datetime import datetime, date, timedelta
+from typing import Any
 
 from sqlalchemy import select, update, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -125,6 +126,7 @@ class OrderRepository:
         try:
             stmt = delete(DeliveryOrderModel).where(DeliveryOrderModel.id == order_id)
             await self.session.execute(stmt)
+            await self.session.commit()
             logger.info("Deleted order: id=%s", order_id)
 
         except Exception as e:
@@ -251,10 +253,7 @@ class OrderRepository:
     async def get_orders_by_date(
             self,
             order_date: date,
-            statuses: list[OrderStatus] | None = None,
-            restaurant_id: int | None = None,
-            creator_id: int | None = None,
-            include_inactive: bool = False
+            status: OrderStatus | None = None,
     ) -> list[DeliveryOrderModel]:
         try:
             # Определяем временные границы для дня
@@ -266,35 +265,8 @@ class OrderRepository:
                 DeliveryOrderModel.created_at >= start_datetime,
                 DeliveryOrderModel.created_at < end_datetime
             )
-
-            # Фильтр по статусам
-            if statuses:
-                stmt = stmt.where(DeliveryOrderModel.status.in_(statuses))
-            else:
-                # По умолчанию не показываем завершенные заказы
-                if not include_inactive:
-                    stmt = stmt.where(
-                        DeliveryOrderModel.status != OrderStatus.DELIVERED,
-                        DeliveryOrderModel.status != OrderStatus.CANCELLED
-                    )
-
-            # Фильтр по ресторану
-            if restaurant_id:
-                stmt = stmt.where(DeliveryOrderModel.restaurant_id == restaurant_id)
-
-            # Фильтр по создателю
-            if creator_id:
-                stmt = stmt.where(DeliveryOrderModel.creator_id == creator_id)
-
-            # Загружаем связанные данные
-            stmt = stmt.options(
-                selectinload(DeliveryOrderModel.restaurant),
-                selectinload(DeliveryOrderModel.creator),
-                selectinload(DeliveryOrderModel.delivery_person),
-                selectinload(DeliveryOrderModel.item_associations).selectinload(DeliveryOrderModel.dishes),
-                selectinload(DeliveryOrderModel.carts).selectinload(DeliveryOrderModel.item_associations)
-            )
-
+            if status:
+                stmt = stmt.where(DeliveryOrderModel.status == status)
             # Сортировка по дате создания (новые сначала)
             stmt = stmt.order_by(DeliveryOrderModel.created_at.desc())
 
@@ -303,4 +275,24 @@ class OrderRepository:
             return list(result.scalars().all())
         except Exception as e:
             logger.error("Error getting order by date for  date %s: %s", order_date, str(e))
+            raise
+
+    async def update_order_status(
+            self,
+            order_id: int,
+            status: OrderStatus
+    ) -> None:
+        try:
+            stmt = (
+                update(DeliveryOrderModel)
+                .where(DeliveryOrderModel.id == order_id)
+                .values(status=status)
+            )
+            await self.session.execute(stmt)
+            await self.session.commit()
+            logger.info("Successfully updated order status for order %s", order_id)
+
+        except Exception as e:
+            logger.error("Error updating order %s status: %s", order_id, str(e))
+            await self.session.rollback()
             raise

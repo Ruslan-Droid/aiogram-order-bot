@@ -7,10 +7,10 @@ from aiogram_dialog.widgets.text import Const, Format, Multi
 from aiogram_dialog.widgets.input import TextInput
 
 from app.bot.dialogs.flows.delivery_requests.getters import get_restaurants, get_today_orders, \
-    getter_create_enter_contact, getter_select_bank
+    getter_create_enter_contact, getter_select_bank, getter_confirm_create, get_order_statuses
 from app.bot.dialogs.flows.delivery_requests.handlers import create_order, delete_order, \
     user_number_button_click, validate_phone, process_success_phone, process_error_phone, bank_selected, \
-    on_restaurant_selected
+    on_restaurant_selected, user_bank_button_on_click, on_order_selected, on_status_selected
 from app.bot.dialogs.flows.delivery_requests.states import DeliverySG
 
 delivery_dialog = Dialog(
@@ -37,7 +37,7 @@ delivery_dialog = Dialog(
         Cancel(Const("⬅️ На главную")),
         state=DeliverySG.main
     ),
-
+    #########################################################################
     # ➕ Создать заявку -> Окно выбора ресторана для создания заявки
     Window(
         Const("Выберите заведение для заявки:"),
@@ -86,38 +86,48 @@ delivery_dialog = Dialog(
             Radio(
                 checked_text=Format("🔘 {item[0]}"),
                 unchecked_text=Format("⚪️ {item[0]}"),
-                # Отображаем название банка
                 id="bank_radio",
-                item_id_getter=lambda item: item[0],  # Используем значение Enum как id
-                items="banks",  # Будет получено из геттера
-                on_click=bank_selected,  # Обработчик выбора банка
+                item_id_getter=lambda item: item[0],
+                items="banks",
             )
         ),
-        Button(
-            text=Const("Сохранить"),
-            id="save_button",
-            on_click=lambda x: x,
+        Row(
+            Back(Const("⬅️ Назад")),
+            Button(
+                text=Format("{preferred_bank}"),
+                id="preferred_bank_button_from_user",
+                on_click=user_bank_button_on_click,
+                when=lambda data, widget, manager: data.get("preferred_bank") is not None,
+            ),
+            Button(
+                text=Const("✅ Сохранить"),
+                id="save_button",
+                on_click=bank_selected,
+            ),
         ),
-        Back(Const("⬅️ Назад")),
         getter=getter_select_bank,
         state=DeliverySG.create_select_bank
     ),
+
     # Окно подтверждения
     Window(
-        Multi(
-            Format("📋 Подтверждение заявки:"),
-            Format("Заведение: {dialog_data[restaurant_name]}"),
-            Format("Телефон: {dialog_data[phone]}"),
-            Format("Банк: {dialog_data[bank].value}"),
-            Const(""),
-            Const("Создать заявку?")
-        ),
+        Format("📋 Подтверждение заявки:\n"
+               "Заведение: {restaurant_name}\n"
+               "Телефон: {phone}\n"
+               "Банк: {bank}\n\n"
+               "Создать заявку?"),
         Row(
-            Button(Const("✅ Создать"), id="confirm_create", on_click=create_order),
-            Back(Const("❌ Отмена"))
+            Back(Const("❌ Отмена")),
+            Button(
+                Const("✅ Создать"),
+                id="confirm_create",
+                on_click=create_order
+            ),
         ),
+        getter=getter_confirm_create,
         state=DeliverySG.create_confirm
     ),
+    #########################################################################
     # 🗑️ Удалить заявку
     Window(
         Const("🗑️ Выберите заявку для удаления:"),
@@ -133,8 +143,47 @@ delivery_dialog = Dialog(
             width=1,
             height=5,
         ),
-        Back(Const("⬅️ Назад")),
+        SwitchTo(Const("⬅️ Назад"), state=DeliverySG.main, id="back_button"),
         state=DeliverySG.delete_list,
         getter=get_today_orders
+    ),
+    #########################################################################
+    # today orders list
+    Window(
+        Const("Выберите заявку для изменения статуса:"),
+        ScrollingGroup(
+            Select(
+                Format("{item[0]}"),
+                id="select_order",
+                item_id_getter=lambda x: x[1],
+                items="orders",
+                on_click=on_order_selected,
+            ),
+            id="order_list",
+            width=1,
+            height=5,
+        ),
+        SwitchTo(Const("⬅️ Назад"), state=DeliverySG.main, id="back_button"),
+        state=DeliverySG.delivery_list,
+        getter=get_today_orders
+    ),
+    # choosing status for order
+    Window(
+        Const("🔄 Выберите статус для заказа:"),
+        ScrollingGroup(
+            Select(
+                Format("{item[0]}"),
+                id="select_status",
+                item_id_getter=lambda x: x[1],
+                items="statuses",
+                on_click=on_status_selected,
+            ),
+            id="status_list",
+            width=1,
+            height=5,
+        ),
+        SwitchTo(Const("⬅️ Назад"), state=DeliverySG.delivery_list, id="back_button"),
+        state=DeliverySG.delivery_list_choose_status,
+        getter=get_order_statuses,
     ),
 )

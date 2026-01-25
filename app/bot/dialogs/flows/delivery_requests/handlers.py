@@ -3,12 +3,16 @@ import re
 from aiogram.types import CallbackQuery, Message
 from aiogram_dialog import DialogManager
 from aiogram_dialog.widgets.input import ManagedTextInput
-from aiogram_dialog.widgets.kbd import Button, Select, Radio
+from aiogram_dialog.widgets.kbd import Button, Select, Radio, ManagedRadio
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.dialogs.flows.delivery_requests.states import DeliverySG
+from app.bot.dialogs.flows.delivery_requests.utils import send_order_notifications
+from app.infrastructure.database.enums.order_statuses import OrderStatus
 from app.infrastructure.database.enums.payment_methods import PaymentMethod
 from app.infrastructure.database.models import UserModel
 from app.infrastructure.database.query.order_queries import OrderRepository
+from app.infrastructure.database.query.user_queries import UserRepository
 
 
 async def on_restaurant_selected(
@@ -16,13 +20,15 @@ async def on_restaurant_selected(
         button: Select,
         dialog_manager: DialogManager,
         item_id: int,
+        **kwargs,
 ) -> None:
-    dialog_manager.dialog_data.update({
-        "restaurant_id": dialog_manager.dialog_data["restaurant_id"],
-        "restaurant_name": dialog_manager.dialog_data["restaurant_name"]
-    })
-    print(dialog_manager.dialog_data["restaurant_id"])
-    print(dialog_manager.dialog_data["restaurant_name"])
+    restaurants = dialog_manager.dialog_data["_restaurants_cache"]
+
+    for rest in restaurants:
+        if rest["id"] == int(item_id):
+            dialog_manager.dialog_data["restaurant_id"] = int(item_id)
+            dialog_manager.dialog_data["restaurant_name"] = rest["name"]
+            break
 
     await dialog_manager.switch_to(DeliverySG.create_enter_contact)
 
@@ -78,7 +84,7 @@ async def process_success_phone(
         text: str
 ) -> None:
     # Сохраняем номер в dialog_data
-    dialog_manager.current_context().dialog_data['phone'] = text
+    dialog_manager.dialog_data['phone'] = text
 
     # Переходим к выбору банка
     await dialog_manager.switch_to(DeliverySG.create_select_bank)
@@ -99,16 +105,24 @@ async def process_error_phone(
     )
 
 
+async def user_bank_button_on_click(
+        callback: CallbackQuery,
+        widget: Button,
+        dialog_manager: DialogManager,
+) -> None:
+    await dialog_manager.switch_to(DeliverySG.create_confirm)
+
+
 async def bank_selected(
         callback: CallbackQuery,
-        widget: Radio,
+        widget: Button,
         dialog_manager: DialogManager,
-        item_id: str
 ) -> None:
-    """
-    Обработка выбора банка
-    """
     # Получаем выбранный банк по ID
+    radio_lang: ManagedRadio = dialog_manager.find("bank_radio")
+    item_id = radio_lang.get_checked()
+    print(item_id)
+
     try:
         selected_bank = PaymentMethod(item_id)
     except ValueError:
@@ -116,7 +130,7 @@ async def bank_selected(
         return
 
     # Сохраняем банк в dialog_data
-    dialog_manager.current_context().dialog_data['bank'] = selected_bank.value
+    dialog_manager.dialog_data['bank'] = selected_bank.value
 
     # Можно сохранить предпочтение пользователя в БД
 
@@ -134,28 +148,73 @@ async def create_order(
     session = manager.middleware_data["session"]
     user: UserModel = manager.middleware_data["user_row"]
 
+    restaurant_name = manager.dialog_data["restaurant_name"]
+    restaurant_id = manager.dialog_data["restaurant_id"]
+    phone = manager.dialog_data["phone"]
+    bank = manager.dialog_data["bank"]
+
     order = await OrderRepository(session).create_order(
-        restaurant_id=manager.dialog_data["restaurant_id"],
+        restaurant_id=restaurant_id,
         creator_id=user.id,
-        phone_number=manager.dialog_data["phone"],
-        payment_method=manager.dialog_data["bank"]
+        phone_number=phone,
+        payment_method=bank
     )
 
-    # Отправка уведомлений всем активным пользователям
-    # TODO
-    # Здесь нужно реализовать рассылку
+    await UserRepository(session).update_phone_and_bank(
+        telegram_id=user.telegram_id,
+        phone_number=phone,
+        bank=bank,
+    )
 
-    await callback.answer(f"✅ Заявка #{order.id} создана!", show_alert=True)
+    await send_order_notifications(
+        bot=callback.bot,
+        session=session,
+        order_id=order.id,
+        restaurant_name=restaurant_name,
+        phone=phone,
+        bank=bank,
+        exclude_telegram_id=user.telegram_id  # Исключаем создателя заказа
+    )
+
+    await callback.message.answer(f"✅ Заявка #{order.id} в <b>{restaurant_name}</b> создана!")
     await manager.done()
 
 
 async def delete_order(
         callback: CallbackQuery,
         widget: Select, manager: DialogManager,
-        order_id: str
+        order_id: int
 ) -> None:
     session = manager.middleware_data["session"]
 
     await OrderRepository(session).delete_order(int(order_id))
     await callback.answer("✅ Заявка удалена!", show_alert=True)
-    await manager.switch_to(DeliverySG.delete_list)
+    await manager.switch_to(DeliverySG.main)
+
+
+async def on_order_selected(
+        callback: CallbackQuery,
+        widget: Select,
+        manager: DialogManager,
+        item_id: str
+):
+    manager.dialog_data["selected_order_id"] = int(item_id)
+    # Переходим к выбору статуса
+    await manager.switch_to(DeliverySG.delivery_list_choose_status)
+
+
+async def on_status_selected(
+        callback: CallbackQuery,
+        widget: Select,
+        manager: DialogManager,
+        item_id: str
+):
+    session: AsyncSession = manager.middleware_data["session"]
+    order_id = manager.dialog_data.get("selected_order_id")
+    status = OrderStatus[item_id]
+
+    await OrderRepository(session).update_order_status(order_id, status=status)
+
+    await callback.answer(f"Статус обновлен на: {status.value}", show_alert=True)
+
+    await manager.switch_to(DeliverySG.delivery_list)

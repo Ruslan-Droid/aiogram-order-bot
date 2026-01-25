@@ -8,5 +8,6 @@ class DeliverySG(StatesGroup):
     create_select_bank = State()
     create_confirm = State()
     delete_list = State()
-    delete_confirm = State()
     delivery_list = State()
+    delivery_list_choose_status = State()
+

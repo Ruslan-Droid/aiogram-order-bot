@@ -1,7 +1,10 @@
+import logging
+
+from datetime import datetime
 from aiogram import Bot, Router
 from aiogram.enums import BotCommandScopeType
 from aiogram.filters import CommandStart, Command
-from aiogram.types import Message, BotCommandScopeChat, LinkPreviewOptions
+from aiogram.types import Message, BotCommandScopeChat, LinkPreviewOptions, CallbackQuery
 
 from aiogram_dialog import DialogManager, StartMode
 from fluentogram import TranslatorRunner
@@ -11,10 +14,13 @@ from app.bot.dialogs.flows.main_menu.states import MainMenuSG
 from app.bot.dialogs.flows.settings.states import SettingsSG
 from app.bot.filters.chat_type_filters import ChatTypeFilterMessage, ChatTypeFilterCallback
 from app.bot.keyboards.inline_keyboards import get_help_keyboard
+from app.bot.utils.notifications_for_admins import notify_admins_about_new_user, AdminActionCallback
 from app.infrastructure.database.enums.user_roles import UserRole
 from app.infrastructure.database.models.user import UserModel
 from app.infrastructure.database.query.user_queries import UserRepository
 from app.bot.keyboards.menu_button import get_main_menu_commands
+
+logger = logging.getLogger(__name__)
 
 commands_router = Router()
 commands_router.message.filter(ChatTypeFilterMessage("private"))
@@ -40,16 +46,20 @@ async def command_start_handler(
             language_code=message.from_user.language_code,
         )
 
+        await notify_admins_about_new_user(bot, session, user_row)
+
     await bot.set_my_commands(
         commands=get_main_menu_commands(i18n=i18n),
         scope=BotCommandScopeChat(
             type=BotCommandScopeType.CHAT, chat_id=message.from_user.id
         ),
     )
+
     if user_row.role == UserRole.UNKNOWN:
         username = message.from_user.full_name or message.from_user.username or i18n.stranger()
         await message.answer(i18n.bot.description(username=username))
         await dialog_manager.start(state=MainMenuSG.menu, mode=StartMode.RESET_STACK)
+
     else:
         await dialog_manager.start(state=MainMenuSG.menu, mode=StartMode.RESET_STACK)
 
@@ -84,3 +94,63 @@ async def process_lang_command_sg(
         dialog_manager: DialogManager,
 ) -> None:
     await dialog_manager.start(state=SettingsSG.lang)
+
+
+@commands_router.callback_query(AdminActionCallback.filter())
+async def handle_admin_action(
+        callback_query: CallbackQuery,
+        callback_data: AdminActionCallback,
+        session: AsyncSession,
+        bot: Bot
+):
+    action = callback_data.action
+    user_id = callback_data.user_id
+
+    user_rep = UserRepository(session)
+    target_user = await user_rep.get_user_by_telegram_id(user_id)
+
+    if not target_user:
+        await callback_query.answer("Пользователь не найден")
+        await callback_query.message.edit_text(
+            f"{callback_query.message.text}\n\n❌ Пользователь не найден в базе"
+        )
+        return
+
+    if action == "authorize":
+        await UserRepository(session).update_user_role(telegram_id=target_user.telegram_id, role=UserRole.MEMBER)
+        # Отправляем уведомление пользователю
+        try:
+            await bot.send_message(
+                chat_id=user_id,
+                text="🎉 Ваша заявка одобрена! Теперь у вас есть доступ к боту."
+            )
+
+        except Exception as e:
+            logger.error(f"Failed to notify user %s: %s", user_id, str(e))
+
+        # Обновляем сообщение админу
+        await callback_query.message.edit_text(
+            f"{callback_query.message.text}\n\n✅ <b>Пользователь авторизован</b>\n"
+            f"Роль: {UserRole.MEMBER.value}\n"
+            f"Время: {datetime.now().strftime('%H:%M:%S')}",
+            parse_mode="HTML"
+        )
+        await callback_query.answer("Пользователь авторизован")
+
+    elif action == "reject":
+        await user_rep.update_user_role(telegram_id=target_user.telegram_id, role=UserRole.BANNED)
+        try:
+            await bot.send_message(
+                chat_id=user_id,
+                text="❌ Ваша заявка была отклонена администратором."
+            )
+        except Exception as e:
+            logger.error("Failed to notify user %s: %s", user_id, str(e))
+
+        # Обновляем сообщение админу
+        await callback_query.message.edit_text(
+            f"{callback_query.message.text}\n\n❌ <b>Пользователь отклонен</b>\n"
+            f"Время: {datetime.now().strftime('%H:%M:%S')}",
+            parse_mode="HTML"
+        )
+        await callback_query.answer("Пользователь отклонен")

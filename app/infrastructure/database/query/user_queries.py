@@ -4,6 +4,7 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.dialects.postgresql import insert as pg_insert
 
+from app.infrastructure.database.enums.payment_methods import PaymentMethod
 from app.infrastructure.database.models.user import UserModel, UserRole
 
 logger = logging.getLogger(__name__)
@@ -27,6 +28,20 @@ class UserRepository:
         except Exception as e:
             logger.error("Error getting user by telegram id %s: %s", telegram_id, str(e))
             raise
+
+    async def get_users_by_telegram_ids(
+            self,
+            telegram_ids: list[int]
+    ) -> dict[int, UserModel]:
+        try:
+            stmt = select(UserModel).filter(
+                UserModel.telegram_id.in_(telegram_ids)
+            )
+            users = await self.session.scalars(stmt)
+            return {user.telegram_id: user for user in users}
+        except Exception as e:
+            logger.error("Error getting users by ids: %s", str(e))
+            return {}
 
     async def create_or_update_user(
             self,
@@ -75,41 +90,6 @@ class UserRepository:
             logger.error("Error creating/updating user by telegram id: %s, error: %s", telegram_id, str(e))
             raise
 
-    async def update_user_tz_region(self, telegram_id: int, tz_region: str) -> None:
-        try:
-            stmt = (
-                update(UserModel)
-                .where(UserModel.telegram_id == telegram_id)
-                .values(tz_region=tz_region)
-            )
-            await self.session.execute(stmt)
-            await self.session.commit()
-            logger.info("Updated time_zone for telegram id: %s", telegram_id)
-        except Exception as e:
-            await self.session.rollback()
-            logger.error("Error updating time_zone for telegram id: %s, error: %s", telegram_id, str(e))
-            raise
-
-    async def update_users_coordinates(
-            self,
-            telegram_id: int,
-            latitude: float,
-            longitude: float
-    ) -> None:
-        try:
-            stmt = (
-                update(UserModel)
-                .where(UserModel.telegram_id == telegram_id)
-                .values(latitude=latitude, longitude=longitude)
-            )
-            await self.session.execute(stmt)
-            await self.session.commit()
-            logger.info("Updated coordinates for telegram id: %s", telegram_id)
-        except Exception as e:
-            await self.session.rollback()
-            logger.error("Error updating coordinates for telegram id: %s, error: %s", telegram_id, str(e))
-            raise
-
     async def update_users_language(
             self,
             telegram_id: int,
@@ -127,25 +107,6 @@ class UserRepository:
         except Exception as e:
             await self.session.rollback()
             logger.error("Error updating coordinates for telegram id: %s error: %s", telegram_id, str(e))
-            raise
-
-    async def update_user_city(
-            self,
-            telegram_id: int,
-            city: str
-    ) -> None:
-        try:
-            stmt = (
-                update(UserModel)
-                .where(UserModel.telegram_id == telegram_id)
-                .values(city=city)
-            )
-            await self.session.execute(stmt)
-            await self.session.commit()
-            logger.info("Updated city for telegram id: %s", telegram_id)
-        except Exception as e:
-            await self.session.rollback()
-            logger.error("Error updating city for telegram id: %s error: %s", telegram_id, str(e))
             raise
 
     async def update_activity_status(
@@ -167,16 +128,107 @@ class UserRepository:
             logger.error("Error updating is_active status for telegram id: %s error: %s", telegram_id, str(e))
             raise
 
-    async def get_users_by_telegram_ids(
+    async def update_phone_and_bank(
             self,
-            telegram_ids: list[int]
-    ) -> dict[int, UserModel]:
+            telegram_id: int,
+            phone_number: str,
+            bank: PaymentMethod,
+    ) -> None:
         try:
-            stmt = select(UserModel).filter(
-                UserModel.telegram_id.in_(telegram_ids)
+            stmt = (
+                update(UserModel)
+                .where(UserModel.telegram_id == telegram_id)
+                .values(
+                    phone_number=phone_number,
+                    preferred_bank=bank,
+                )
             )
-            users = await self.session.scalars(stmt)
-            return {user.telegram_id: user for user in users}
+            await self.session.execute(stmt)
+            await self.session.commit()
+            logger.info("Updated is_active status for telegram id: %s", telegram_id)
+
         except Exception as e:
-            logger.error("Error getting users by ids: %s", str(e))
-            return {}
+            logger.error("Error getting update_phone_and_bank: %s", str(e))
+            raise
+
+    async def get_active_users_except(
+            self,
+            exclude_telegram_id: int | None = None
+    ) -> list[UserModel]:
+        try:
+            # Исключаем роли UNKNOWN и BANNED
+            stmt = select(UserModel).where(
+                UserModel.is_active == True,
+                UserModel.role.not_in([UserRole.UNKNOWN, UserRole.BANNED])
+            )
+
+            # Исключаем конкретного пользователя, если указан
+            if exclude_telegram_id:
+                stmt = stmt.where(UserModel.telegram_id != exclude_telegram_id)
+
+            result = await self.session.execute(stmt)
+            users = list(result.scalars().all())
+
+            logger.info("Fetched %s active users (excluding UNKNOWN/BANNED roles)", len(users))
+            return users
+
+        except Exception as e:
+            logger.error("Error getting active users: %s", str(e))
+            raise
+
+    async def get_active_admins(
+            self,
+    ) -> list[UserModel]:
+        try:
+            stmt = select(UserModel).where(
+                UserModel.is_active == True,
+                UserModel.role.in_([UserRole.ADMIN, UserRole.SUPER_ADMIN])
+            )
+
+            result = await self.session.execute(stmt)
+            admins = list(result.scalars().all())
+
+            logger.info("Fetched %s active users (ADMIN roles)", len(admins))
+            return admins
+        except Exception as e:
+            logger.error("Error getting active admins: %s", str(e))
+            raise
+
+    async def update_user_role(
+            self,
+            role: UserRole,
+            telegram_id: int,
+    ) -> None:
+        try:
+            stmt = (
+                update(UserModel)
+                .where(UserModel.telegram_id == telegram_id)
+                .values(
+                    role=role,
+                )
+            )
+            await self.session.execute(stmt)
+            await self.session.commit()
+            logger.info("Updated user role  for telegram id: %s", telegram_id)
+
+        except Exception as e:
+            logger.error("Error updating user_role: %s", str(e))
+            raise
+
+    async def get_users_by_role(
+            self,
+            role: UserRole,
+    ) -> list[UserModel]:
+        try:
+            stmt = select(UserModel).where(
+                UserModel.role == role,
+                UserModel.is_active == True
+            )
+
+            result = await self.session.execute(stmt)
+            users = list(result.scalars().all())
+            return users
+
+        except Exception as e:
+            logger.error("Error getting users by role: %s", str(e))
+        raise

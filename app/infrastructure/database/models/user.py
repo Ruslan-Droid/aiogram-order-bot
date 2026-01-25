@@ -2,7 +2,7 @@ import re
 from typing import TYPE_CHECKING
 
 from sqlalchemy import BigInteger, String
-from sqlalchemy.orm import Mapped, mapped_column, relationship, validates
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.infrastructure.database.enums.payment_methods import PaymentMethod
 from app.infrastructure.database.enums.user_roles import UserRole
