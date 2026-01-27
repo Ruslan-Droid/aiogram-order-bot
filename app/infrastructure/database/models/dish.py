@@ -17,6 +17,7 @@ class DishModel(Base):
     name: Mapped[str] = mapped_column(String(255))
     price: Mapped[float] = mapped_column()
     display_order: Mapped[int] = mapped_column(default=0)
+    is_active: Mapped[bool] = mapped_column(default=True)
 
     # Relationships
     category_id: Mapped[int] = mapped_column(ForeignKey("categories.id"))

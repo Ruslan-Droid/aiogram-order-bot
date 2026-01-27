@@ -21,6 +21,20 @@ async def get_restaurants(dialog_manager: DialogManager, **kwargs) -> Dict[str, 
     }
 
 
+async def get_deleted_restaurants(dialog_manager: DialogManager, **kwargs) -> Dict[str, Any]:
+    session: AsyncSession = dialog_manager.middleware_data["session"]
+    repo = RestaurantRepository(session)
+
+    restaurants = await repo.get_all_disabled_restaurants()
+
+    return {
+        "restaurants": [
+            (restaurant.name, restaurant.id) for restaurant in restaurants
+        ],
+        "count": len(restaurants)
+    }
+
+
 async def get_categories_for_restaurant(dialog_manager: DialogManager, **kwargs) -> Dict[str, Any]:
     session: AsyncSession = dialog_manager.middleware_data["session"]
     repo = CategoryRepository(session)
@@ -29,7 +43,7 @@ async def get_categories_for_restaurant(dialog_manager: DialogManager, **kwargs)
     if not restaurant_id:
         return {"categories": [], "count": 0}
 
-    categories = await repo.get_categories_by_restaurant(restaurant_id)
+    categories = await repo.get_categories_by_restaurant(int(restaurant_id))
 
     return {
         "categories": [

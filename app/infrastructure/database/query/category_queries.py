@@ -130,3 +130,19 @@ class CategoryRepository:
             await self.session.rollback()
             logger.error("Error updating category status for id %s: %s", category_id, str(e))
             raise
+
+    async def update_category_name(self, category_id: int, name: str) -> None:
+        try:
+            stmt = (
+                update(CategoryModel)
+                .where(CategoryModel.id == category_id)
+                .values(name=name)
+            )
+            await self.session.execute(stmt)
+            await self.session.commit()
+            logger.info("Updated category name: id=%s, name=%s", category_id, name)
+
+        except Exception as e:
+            await self.session.rollback()
+            logger.error("Error updating category name for id %s: %s", category_id, str(e))
+            raise

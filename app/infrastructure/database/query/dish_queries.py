@@ -31,7 +31,8 @@ class DishRepository:
         try:
             stmt = (
                 select(DishModel)
-                .filter(DishModel.category_id == category_id)
+                .filter(DishModel.category_id == category_id,
+                        DishModel.is_active == True)
                 .order_by(DishModel.display_order)
             )
             result = await self.session.scalars(stmt)
@@ -127,4 +128,24 @@ class DishRepository:
         except Exception as e:
             await self.session.rollback()
             logger.error("Error updating dish display order for id %s: %s", dish_id, str(e))
+            raise
+
+    async def update_dish_status(
+            self,
+            dish_id: int,
+            status: bool
+    ) -> None:
+        try:
+            stmt = (
+                update(DishModel)
+                .where(DishModel.id == dish_id)
+                .values(status=status)
+            )
+            await self.session.execute(stmt)
+            await self.session.commit()
+            logger.info("Updated dish status: id=%s, order=%s", dish_id, status)
+
+        except Exception as e:
+            await self.session.rollback()
+            logger.error("Error updating dish statys  for id %s: %s", dish_id, str(e))
             raise

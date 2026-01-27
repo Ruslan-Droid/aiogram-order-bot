@@ -42,6 +42,21 @@ class RestaurantRepository:
         except Exception as e:
             logger.error("Error getting all active restaurants: %s", str(e))
             raise
+    async def get_all_disabled_restaurants(self) -> list[RestaurantModel]:
+        try:
+            stmt = (
+                select(RestaurantModel)
+                .filter(RestaurantModel.is_active == False)
+                .order_by(RestaurantModel.name)
+            )
+            result = await self.session.scalars(stmt)
+            restaurants = list(result.all())
+            logger.info("Fetched all active restaurants, count: %s", len(restaurants))
+            return restaurants
+
+        except Exception as e:
+            logger.error("Error getting all active restaurants: %s", str(e))
+            raise
 
     async def create_restaurant(self, name: str, is_active: bool = True) -> RestaurantModel:
         try:
