@@ -14,12 +14,14 @@ from .getters import (
     get_selected_category, get_deleted_restaurants
 )
 from .handlers import (
-    add_multiple_dishes_handler, validate_name, process_success_restaurant_name,
+     validate_name, process_success_restaurant_name,
     process_error_name, on_restaurant_selected_delete, on_restaurant_selected_rename,
     process_success_restaurant_rename, on_restaurant_selected_for_categories, on_restaurant_selected_recover,
     process_success_category_name, process_success_category_rename, on_category_selected_delete,
     on_category_selected_rename, on_restaurant_selected_for_dishes, on_category_selected_for_dishes,
-    process_success_dish_name,
+    process_success_dish_name_and_price, validate_and_split_dish_name_and_price, on_dish_selected_delete,
+    on_dish_selected_rename, process_success_dish_rename, validate_price, on_dish_selected_update_price,
+    process_success_dish_update_price, parse_dishes_input, handle_multiple_dishes_added, handle_dishes_parse_error,
 )
 
 menu_settings_dialog = Dialog(
@@ -41,7 +43,7 @@ menu_settings_dialog = Dialog(
             SwitchTo(
                 Const("🍽️ Блюда"),
                 id="dish_settings",
-                state=MenuSettingsSG.select_category_for_dish,
+                state=MenuSettingsSG.select_restaurant_for_dish,
             ),
         ),
         Cancel(Const("⬅️ Назад")),
@@ -294,7 +296,7 @@ menu_settings_dialog = Dialog(
         getter=get_restaurants,
         state=MenuSettingsSG.select_restaurant_for_dish,
     ),
-    # Выбор категории для работы с блюдами
+    # Выбор категории для работы с блюдами ✅
     Window(
         Format(
             "📁 <b>Выберите категорию для работы с блюдами</b>\n\nЗаведение: <b>{restaurant_name}</b>\n\nНайдено категорий: {count}"),
@@ -316,7 +318,7 @@ menu_settings_dialog = Dialog(
         getter=get_categories_for_restaurant,
         state=MenuSettingsSG.select_category_for_dish,
     ),
-    # Меню настройки блюд для выбранной категории
+    # Меню настройки блюд для выбранной категории ✅
     Window(
         Format("🍽️ <b>Настройка блюд</b>\n\n"
                "Категория: <b>{category_name}</b>\n\n"
@@ -331,10 +333,10 @@ menu_settings_dialog = Dialog(
                         id="rename_dish_btn",
                         state=MenuSettingsSG.rename_dish),
                SwitchTo(Const("💰 Изменить цену"),
-                        id="rename_dish_btn",
+                        id="update_price_dish_btn",
                         state=MenuSettingsSG.change_dish_price),
                SwitchTo(Const("📋 Добавить списком"),
-                        id="rename_dish_btn",
+                        id="add_list_dish_btn",
                         state=MenuSettingsSG.add_multiple_dishes),
                ),
         SwitchTo(Const("⬅️ Назад"),
@@ -343,13 +345,14 @@ menu_settings_dialog = Dialog(
         getter=get_selected_category,
         state=MenuSettingsSG.dishes_menu,
     ),
-    # Добавление блюдо
+    # Добавление блюдо ✅
     Window(
-        Const("Введите название нового блюда:"),
+        Const("Введите название нового блюда и его цену.\n\n"
+              "Пример: <b>Куриное филе 100</b>"),
         TextInput(
             id="dish_name_input",
-            type_factory=validate_name,
-            on_success=process_success_dish_name,
+            type_factory=validate_and_split_dish_name_and_price,
+            on_success=process_success_dish_name_and_price,
             on_error=process_error_name,
         ),
         SwitchTo(Const("⬅️ Назад"),
@@ -357,7 +360,7 @@ menu_settings_dialog = Dialog(
                  state=MenuSettingsSG.dishes_menu),
         state=MenuSettingsSG.add_dish,
     ),
-    # Удаление блюда
+    # Удаление блюда ✅
     Window(
         Const("Выберите блюдо которое хотите удалить:"),
         ScrollingGroup(
@@ -366,7 +369,7 @@ menu_settings_dialog = Dialog(
                 id="dish_select_for_delete",
                 item_id_getter=lambda x: x[1],
                 items="dishes",
-                on_click=,
+                on_click=on_dish_selected_delete,
             ),
             id="dish_group_for_deleting",
             width=1,
@@ -378,7 +381,7 @@ menu_settings_dialog = Dialog(
         getter=get_dishes_for_category,
         state=MenuSettingsSG.delete_dish,
     ),
-    # Переименование блюда
+    # Переименование блюда ✅
     Window(
         Const("Выберите блюдо которое хотите переименовать:"),
         ScrollingGroup(
@@ -386,8 +389,8 @@ menu_settings_dialog = Dialog(
                 Format("{item[0]}"),
                 id="dish_select_for_rename",
                 item_id_getter=lambda x: x[1],
-                items="categories",
-                on_click=on_category_selected_rename,
+                items="dishes",
+                on_click=on_dish_selected_rename,
             ),
             id="dish_group_for_renaming",
             width=1,
@@ -396,7 +399,7 @@ menu_settings_dialog = Dialog(
         SwitchTo(Const("⬅️ Назад"),
                  id="back_btn",
                  state=MenuSettingsSG.dishes_menu),
-        getter=,
+        getter=get_dishes_for_category,
         state=MenuSettingsSG.rename_dish,
     ),
     Window(
@@ -404,7 +407,7 @@ menu_settings_dialog = Dialog(
         TextInput(
             id="dish_rename_input",
             type_factory=validate_name,
-            on_success=,
+            on_success=process_success_dish_rename,
             on_error=process_error_name,
         ),
         SwitchTo(Const("⬅️ Назад"),
@@ -415,18 +418,52 @@ menu_settings_dialog = Dialog(
 
     # Изменение цены блюда
     Window(
-        Const("Введите данные в формате:\n<code>ID|новая_цена</code>\n\nПример: <code>1|15.99</code>"),
-        MessageInput(change_dish_price_handler),
-        Back(Const("⬅️ Назад")),
+        Const("Выберите блюдо у которого хотите изменить цену:"),
+        ScrollingGroup(
+            Select(
+                Format("{item[0]}"),
+                id="dish_select_for_update_price",
+                item_id_getter=lambda x: x[1],
+                items="dishes",
+                on_click=on_dish_selected_update_price,
+            ),
+            id="dish_group_for_update_price",
+            width=1,
+            height=6,
+        ),
+        SwitchTo(Const("⬅️ Назад"),
+                 id="back_btn",
+                 state=MenuSettingsSG.dishes_menu),
+        getter=get_dishes_for_category,
         state=MenuSettingsSG.change_dish_price,
+    ),
+    Window(
+        Const("Напишите цену для блюда:"),
+        TextInput(
+            id="dish_update_price_input",
+            type_factory=validate_price,
+            on_success=process_success_dish_update_price,
+            on_error=process_error_name,
+        ),
+        SwitchTo(Const("⬅️ Назад"),
+                 id="back_btn",
+                 state=MenuSettingsSG.change_dish_price),
+        state=MenuSettingsSG.change_dish_price_input,
     ),
 
     # Добавление нескольких блюд
     Window(
-        Const(
-            "Введите список блюд (каждое с новой строки):\n\nФормат для каждого блюда:\n<code>название|цена</code>\n\nПример:\n<code>Пицца Маргарита|12.50\nСалат Цезарь|8.99\nСуп Грибной|5.50</code>"),
-        MessageInput(add_multiple_dishes_handler),
-        Back(Const("⬅️ Назад")),
+        Const("Напишите блюда и цену через запятую в таком формате:\n"
+              "Куриное филе:200, Картошка фри:500.20"),
+        TextInput(
+            id="add_dish_list_input",
+            type_factory=parse_dishes_input,
+            on_success=handle_multiple_dishes_added,
+            on_error=handle_dishes_parse_error,
+        ),
+        SwitchTo(Const("⬅️ Назад"),
+                 id="back_btn",
+                 state=MenuSettingsSG.dishes_menu),
         state=MenuSettingsSG.add_multiple_dishes,
     ),
 )

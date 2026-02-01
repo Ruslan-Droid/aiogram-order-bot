@@ -1,8 +1,8 @@
 """initial migration
 
-Revision ID: 38a3f757a8a6
+Revision ID: fd6897b08bf2
 Revises: 
-Create Date: 2026-01-24 12:35:58.440279
+Create Date: 2026-02-01 17:34:19.769799
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 # revision identifiers, used by Alembic.
-revision: str = '38a3f757a8a6'
+revision: str = 'fd6897b08bf2'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -83,8 +83,10 @@ def upgrade() -> None:
     sa.Column('user_id', sa.Integer(), nullable=False),
     sa.Column('restaurant_id', sa.Integer(), nullable=False),
     sa.Column('delivery_order_id', sa.Integer(), nullable=True),
-    sa.Column('is_active', sa.Boolean(), nullable=False),
+    sa.Column('status', postgresql.ENUM('ACTIVE', 'ATTACHED', 'ORDERED', 'CANCELLED', name='cart_status'), nullable=False),
     sa.Column('total_amount', sa.Float(), nullable=False),
+    sa.Column('notes', sa.String(length=300), nullable=True),
+    sa.Column('is_current', sa.Boolean(), nullable=False),
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('created_at', sa.TIMESTAMP(), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.TIMESTAMP(), server_default=sa.text('now()'), nullable=False),
@@ -93,11 +95,11 @@ def upgrade() -> None:
     sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
     sa.PrimaryKeyConstraint('id')
     )
-    op.create_index('ix_carts_user_active', 'carts', ['user_id', 'is_active'], unique=False)
     op.create_table('dishes',
     sa.Column('name', sa.String(length=255), nullable=False),
     sa.Column('price', sa.Float(), nullable=False),
     sa.Column('display_order', sa.Integer(), nullable=False),
+    sa.Column('is_active', sa.Boolean(), nullable=False),
     sa.Column('category_id', sa.Integer(), nullable=False),
     sa.Column('id', sa.Integer(), autoincrement=True, nullable=False),
     sa.Column('created_at', sa.TIMESTAMP(), server_default=sa.text('now()'), nullable=False),
@@ -142,7 +144,6 @@ def downgrade() -> None:
     op.drop_table('cart_items')
     op.drop_index('ix_dishes_category_order', table_name='dishes')
     op.drop_table('dishes')
-    op.drop_index('ix_carts_user_active', table_name='carts')
     op.drop_table('carts')
     op.drop_index('ix_orders_status_date', table_name='delivery_orders')
     op.drop_index('ix_orders_restaurant_date', table_name='delivery_orders')

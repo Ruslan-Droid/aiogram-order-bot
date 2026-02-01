@@ -6,7 +6,7 @@ from sqlalchemy import select, update, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.infrastructure.database.models.delivery_order import DeliveryOrderModel, OrderItemModel
+from app.infrastructure.database.models.delivery_order import DeliveryOrderModel
 from app.infrastructure.database.enums.order_statuses import OrderStatus
 from app.infrastructure.database.enums.payment_methods import PaymentMethod
 
@@ -23,7 +23,6 @@ class OrderRepository:
                 select(DeliveryOrderModel)
                 .filter(DeliveryOrderModel.id == order_id)
                 .options(
-                    selectinload(DeliveryOrderModel.item_associations).selectinload(OrderItemModel.dish),
                     selectinload(DeliveryOrderModel.restaurant),
                     selectinload(DeliveryOrderModel.creator),
                     selectinload(DeliveryOrderModel.delivery_person)

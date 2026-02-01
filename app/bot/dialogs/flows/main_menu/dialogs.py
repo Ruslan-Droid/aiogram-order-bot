@@ -6,7 +6,7 @@ from app.bot.dialogs.flows.main_menu.getters import get_user_role
 from app.bot.dialogs.flows.main_menu.states import MainMenuSG
 from app.bot.dialogs.flows.menu_view.states import MenuViewSG
 from app.bot.dialogs.flows.delivery_requests.states import DeliverySG
-from app.bot.dialogs.flows.cart_view.states import CartSG
+from app.bot.dialogs.flows.cart.states import CartSG
 from app.bot.dialogs.flows.roles_management.states import AdminPanelSG
 from app.bot.dialogs.flows.menu_settings.states import MenuSettingsSG
 
@@ -22,7 +22,12 @@ main_menu_dialog = Dialog(
                 Start(
                     Const("📋 Меню"),
                     id="view_menu",
-                    state=MenuViewSG.select_restaurant
+                    state=MenuViewSG.restaurants
+                ),
+                Start(
+                    Const("🛒 Корзина"),
+                    id="view_cart",
+                    state=CartSG.main
                 ),
                 # 🚚 Заявки на доставку (Выездник, Админ)
                 Start(
@@ -32,12 +37,6 @@ main_menu_dialog = Dialog(
                     when=role_required(
                         [UserRole.DELIVERY, UserRole.ADMIN, UserRole.SUPER_ADMIN]
                     )
-                ),
-                # 🛒 Посмотреть заказ (Все пользователи)
-                Start(
-                    Const("🛒 Мои заказ"),
-                    id="view_cart",
-                    state=CartSG.view
                 ),
                 # ⚙️ Настроить права пользователей (Админ)
                 Start(

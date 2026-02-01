@@ -9,7 +9,6 @@ from sqlalchemy.dialects.postgresql import ENUM as PgEnum
 from app.infrastructure.database.enums.order_statuses import OrderStatus
 from app.infrastructure.database.enums.payment_methods import PaymentMethod
 from app.infrastructure.database.models import Base
-from app.infrastructure.database.models.dish import DishModel
 
 if TYPE_CHECKING:
     from app.infrastructure.database.models.restaurant import RestaurantModel
@@ -47,18 +46,6 @@ class DeliveryOrderModel(Base):
     )
     carts: Mapped[list["CartModel"]] = relationship(back_populates="delivery_order")
 
-    item_associations: Mapped[list["OrderItemModel"]] = relationship(
-        back_populates="order",
-        cascade="all, delete-orphan"
-    )
-
-    # Many-to-many through association
-    dishes: Mapped[list["DishModel"]] = relationship(
-        secondary="order_items",
-        back_populates="orders",
-        viewonly=True
-    )
-
     __table_args__ = (
         Index("ix_orders_status_date", "status", "created_at"),
         Index("ix_orders_restaurant_date", "restaurant_id", "created_at"),
@@ -66,18 +53,3 @@ class DeliveryOrderModel(Base):
 
     def __repr__(self) -> str:
         return f"DeliveryOrder(id={self.id}, status={self.status.value}, total={self.total_amount})"
-
-
-class OrderItemModel(Base):
-    __tablename__ = "order_items"
-
-    order_id: Mapped[int] = mapped_column(ForeignKey("delivery_orders.id"), primary_key=True)
-    dish_id: Mapped[int] = mapped_column(ForeignKey("dishes.id"), primary_key=True)
-    quantity: Mapped[int] = mapped_column()
-    price: Mapped[float] = mapped_column()
-    user_id: Mapped[int | None] = mapped_column(ForeignKey("users.id"))
-
-    # Relationships
-    order: Mapped["DeliveryOrderModel"] = relationship(back_populates="item_associations")
-    dish: Mapped["DishModel"] = relationship(back_populates="order_associations")
-    user: Mapped["UserModel"] = relationship()

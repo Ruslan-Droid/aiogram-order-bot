@@ -139,7 +139,7 @@ class DishRepository:
             stmt = (
                 update(DishModel)
                 .where(DishModel.id == dish_id)
-                .values(status=status)
+                .values(is_active=status)
             )
             await self.session.execute(stmt)
             await self.session.commit()
@@ -148,4 +148,24 @@ class DishRepository:
         except Exception as e:
             await self.session.rollback()
             logger.error("Error updating dish statys  for id %s: %s", dish_id, str(e))
+            raise
+
+    async def update_dish_name(
+            self,
+            dish_id: int,
+            name: str
+    ) -> None:
+        try:
+            stmt = (
+                update(DishModel)
+                .where(DishModel.id == dish_id)
+                .values(name=name)
+            )
+            await self.session.execute(stmt)
+            await self.session.commit()
+            logger.info("Updated dish name: id=%s, order=%s", dish_id, name)
+
+        except Exception as e:
+            await self.session.rollback()
+            logger.error("Error updating dish name  for id %s: %s", dish_id, str(e))
             raise

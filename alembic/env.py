@@ -8,6 +8,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
 
 from config.config import get_config
+from app.infrastructure.database import enums
 from app.infrastructure.database import models
 from app.infrastructure.database.db import engine
 

@@ -7,7 +7,6 @@ from app.infrastructure.database.models import Base
 
 if TYPE_CHECKING:
     from app.infrastructure.database.models.category import CategoryModel
-    from app.infrastructure.database.models.delivery_order import DeliveryOrderModel, OrderItemModel
     from app.infrastructure.database.models.cart import CartModel, CartItemModel
 
 
@@ -28,20 +27,9 @@ class DishModel(Base):
         cascade="all, delete-orphan"
     )
 
-    order_associations: Mapped[list["OrderItemModel"]] = relationship(
-        back_populates="dish",
-        cascade="all, delete-orphan"
-    )
-
     # Many-to-many through associations
     carts: Mapped[list["CartModel"]] = relationship(
         secondary="cart_items",
-        back_populates="dishes",
-        viewonly=True
-    )
-
-    orders: Mapped[list["DeliveryOrderModel"]] = relationship(
-        secondary="order_items",
         back_populates="dishes",
         viewonly=True
     )

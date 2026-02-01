@@ -1,7 +1,9 @@
 from typing import TYPE_CHECKING
-from sqlalchemy import ForeignKey, Index
+from sqlalchemy import ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.dialects.postgresql import ENUM as PgEnum
 
+from app.infrastructure.database.enums.cart_statuses import CartStatus
 from app.infrastructure.database.models import Base
 
 if TYPE_CHECKING:
@@ -17,8 +19,13 @@ class CartModel(Base):
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
     restaurant_id: Mapped[int] = mapped_column(ForeignKey("restaurants.id"))
     delivery_order_id: Mapped[int | None] = mapped_column(ForeignKey("delivery_orders.id"))
-    is_active: Mapped[bool] = mapped_column(default=True)
-    total_amount: Mapped[float] = mapped_column(default=0.0)
+    status: Mapped[CartStatus] = mapped_column(
+        PgEnum(CartStatus, name="cart_status"),
+        default=CartStatus.ACTIVE
+    )
+    notes: Mapped[str | None] = mapped_column(String(300))
+    is_current: Mapped[bool] = mapped_column(default=True)
+    total_price: Mapped[float | None] = mapped_column(default=0.0)
 
     user: Mapped["UserModel"] = relationship(back_populates="carts")
     restaurant: Mapped["RestaurantModel"] = relationship()
@@ -36,14 +43,15 @@ class CartModel(Base):
         viewonly=True
     )
 
-    __table_args__ = (
-        Index("ix_carts_user_active", "user_id", "is_active"),
-    )
-
     @property
     def items_count(self) -> int:
         """Общее количество позиций в корзине"""
         return sum(item.amount for item in self.item_associations)
+
+    @property
+    def is_attachable(self) -> bool:
+        """Можно ли привязать к заказу"""
+        return self.status == CartStatus.ACTIVE and self.items_count > 0
 
 
 class CartItemModel(Base):

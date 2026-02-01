@@ -30,4 +30,5 @@ class MenuSettingsSG(StatesGroup):
     rename_dish = State()
     rename_dish_input = State()
     change_dish_price = State()
+    change_dish_price_input = State()
     add_multiple_dishes = State()
