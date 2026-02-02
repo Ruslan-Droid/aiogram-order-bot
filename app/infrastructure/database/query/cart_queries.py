@@ -302,22 +302,18 @@ class CartRepository:
             cart_id: int,
             order_id: int
     ) -> None:
-        """Привязать корзину к заказу"""
         try:
-            cart = await self.get_cart_by_id(cart_id)
-            if not cart:
-                raise ValueError(f"Cart {cart_id} not found")
+            stmt = (
+                update(CartModel)
+                .where(
+                    CartModel.id == cart_id,
+                )
+                .values(is_current=False,
+                        status=CartStatus.ORDERED,
+                        delivery_order_id=order_id)
+            )
 
-            # Обновляем статус и привязываем к заказу
-            cart.delivery_order_id = order_id
-            cart.status = CartStatus.ATTACHED
-            cart.is_current = False
-
-            # Фиксируем цены для истории
-            for item in cart.item_associations:
-                if not item.price_at_time:
-                    item.price_at_time = item.dish.price
-
+            await self.session.execute(stmt)
             await self.session.commit()
             logger.info(
                 "Attached cart %s to order %s, status changed to ATTACHED",

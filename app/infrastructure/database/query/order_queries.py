@@ -260,9 +260,15 @@ class OrderRepository:
             end_datetime = datetime.combine(order_date + timedelta(days=1), datetime.min.time())
 
             # Базовый запрос с загрузкой связанных данных
-            stmt = select(DeliveryOrderModel).where(
-                DeliveryOrderModel.created_at >= start_datetime,
-                DeliveryOrderModel.created_at < end_datetime
+            stmt = (
+                select(DeliveryOrderModel)
+                .options(
+                    selectinload(DeliveryOrderModel.restaurant)  # Жадная загрузка ресторана
+                )
+                .where(
+                    DeliveryOrderModel.created_at >= start_datetime,
+                    DeliveryOrderModel.created_at < end_datetime
+                )
             )
             if status:
                 stmt = stmt.where(DeliveryOrderModel.status == status)

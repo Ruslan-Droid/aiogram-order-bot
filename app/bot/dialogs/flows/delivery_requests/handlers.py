@@ -2,7 +2,7 @@ import re
 
 from aiogram.types import CallbackQuery, Message
 from aiogram_dialog import DialogManager
-from aiogram_dialog.widgets.input import ManagedTextInput
+from aiogram_dialog.widgets.input import ManagedTextInput, MessageInput
 from aiogram_dialog.widgets.kbd import Button, Select, Radio, ManagedRadio
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -140,6 +140,16 @@ async def bank_selected(
     await dialog_manager.switch_to(DeliverySG.create_confirm)
 
 
+async def on_comment_entered_for_delivery(
+        message: Message,
+        widget: MessageInput,
+        dialog_manager: DialogManager
+):
+    dialog_manager.dialog_data["comment"] = message.text
+
+    await dialog_manager.switch_to(DeliverySG.create_confirm)
+
+
 async def create_order(
         callback: CallbackQuery,
         button: Button,
@@ -152,12 +162,14 @@ async def create_order(
     restaurant_id = manager.dialog_data["restaurant_id"]
     phone = manager.dialog_data["phone"]
     bank = manager.dialog_data["bank"]
+    comment = manager.dialog_data.get("comment", "Отсутствует")
 
     order = await OrderRepository(session).create_order(
         restaurant_id=restaurant_id,
         creator_id=user.id,
         phone_number=phone,
-        payment_method=bank
+        payment_method=bank,
+        notes=comment,
     )
 
     await UserRepository(session).update_phone_and_bank(
@@ -173,6 +185,7 @@ async def create_order(
         restaurant_name=restaurant_name,
         phone=phone,
         bank=bank,
+        comment=comment,
         exclude_telegram_id=user.telegram_id  # Исключаем создателя заказа
     )
 

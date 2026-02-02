@@ -4,13 +4,14 @@ from aiogram_dialog.widgets.kbd import (
     Back, Select, ScrollingGroup, Cancel, Radio
 )
 from aiogram_dialog.widgets.text import Const, Format, Multi
-from aiogram_dialog.widgets.input import TextInput
+from aiogram_dialog.widgets.input import TextInput, MessageInput
 
 from app.bot.dialogs.flows.delivery_requests.getters import get_restaurants, get_today_orders, \
     getter_create_enter_contact, getter_select_bank, getter_confirm_create, get_order_statuses
 from app.bot.dialogs.flows.delivery_requests.handlers import create_order, delete_order, \
     user_number_button_click, validate_phone, process_success_phone, process_error_phone, bank_selected, \
-    on_restaurant_selected, user_bank_button_on_click, on_order_selected, on_status_selected
+    on_restaurant_selected, user_bank_button_on_click, on_order_selected, on_status_selected, \
+    on_comment_entered_for_delivery
 from app.bot.dialogs.flows.delivery_requests.states import DeliverySG
 
 delivery_dialog = Dialog(
@@ -115,9 +116,16 @@ delivery_dialog = Dialog(
                "Заведение: {restaurant_name}\n"
                "Телефон: {phone}\n"
                "Банк: {bank}\n\n"
+               "Комментарий: {comment}\n"
                "Создать заявку?"),
+        SwitchTo(
+            Const("✍️ Добавить комментарий"),
+            id="go_to_input_commet",
+            state=DeliverySG.input_commet,
+        ),
         Row(
             Back(Const("❌ Отмена")),
+
             Button(
                 Const("✅ Создать"),
                 id="confirm_create",
@@ -127,6 +135,20 @@ delivery_dialog = Dialog(
         getter=getter_confirm_create,
         state=DeliverySG.create_confirm
     ),
+
+    # 📝 Окно добавления комментария
+    Window(
+        Const("✍️ <b>Введите комментарий к заказу:</b>"),
+        MessageInput(
+            func=on_comment_entered_for_delivery,
+            content_types=["text"]
+        ),
+        SwitchTo(Const("⬅️ Назад"),
+                 id="go_to_main_window_button",
+                 state=DeliverySG.create_confirm, ),
+        state=DeliverySG.input_commet,
+    ),
+
     #########################################################################
     # 🗑️ Удалить заявку
     Window(

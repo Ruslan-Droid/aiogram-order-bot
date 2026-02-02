@@ -87,7 +87,7 @@ async def on_add_to_cart_clicked(
                 added_items_count += amount
 
     await cart_repo.update_cart_total_price(cart.id)
-    await callback.answer(f"Добавлено {added_items_count} позиций в корзину!")
+    await callback.answer(f"Добавлено {added_items_count} позиций в корзину!", show_alert=True)
 
 
 async def go_to_cart_clicked(
@@ -95,14 +95,5 @@ async def go_to_cart_clicked(
         widget: Button,
         dialog_manager: DialogManager
 ):
-    session: AsyncSession = dialog_manager.middleware_data["session"]
-    user: UserModel = dialog_manager.middleware_data["user_row"]
-    restaurant_id = dialog_manager.dialog_data.get("restaurant_id")
-
-    cart: CartModel = await CartRepository(session).get_or_create_active_cart(
-        user_id=user.id,
-        restaurant_id=restaurant_id
-    )
-
     await dialog_manager.done()
-    await dialog_manager.start(CartSG.main, data={"cart_id": cart.id})
+    await dialog_manager.start(CartSG.main)

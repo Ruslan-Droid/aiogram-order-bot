@@ -5,3 +5,4 @@ class MenuViewSG(StatesGroup):
     restaurants = State()
     categories = State()
     dishes = State()
+

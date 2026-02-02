@@ -68,11 +68,13 @@ async def getter_confirm_create(
     phone = dialog_manager.dialog_data["phone"]
     bank = dialog_manager.dialog_data["bank"]
     restaurant_name = dialog_manager.dialog_data["restaurant_name"]
+    comment = dialog_manager.dialog_data.get("comment", "пустой")
 
     return {
         "phone": phone,
         "bank": bank,
-        "restaurant_name": restaurant_name
+        "restaurant_name": restaurant_name,
+        "comment": comment
     }
 
 

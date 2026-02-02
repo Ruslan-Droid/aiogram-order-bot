@@ -19,6 +19,7 @@ async def send_order_notifications(
         phone: str,
         bank: str,
         exclude_telegram_id: int,
+        comment: str,
         delay_seconds: float = 0.05  # 20 сообщений в секунду (меньше лимита Telegram 30/сек)
 ) -> None:
     try:
@@ -32,7 +33,8 @@ async def send_order_notifications(
             f"📍 Ресторан: {restaurant_name}\n"
             f"📞 Телефон: <code>{phone}</code>\n"
             f"🏦 Банк: {bank}\n\n"
-            f"<i>Чтобы сделать заказ, перейдите в раздел 'Мои заказы'</i>"
+            f"Комментарий: {comment}\n\n"
+            f"<i>Чтобы сделать заказ, перейдите в раздел 'Меню'</i>"
         )
 
         success_count = 0

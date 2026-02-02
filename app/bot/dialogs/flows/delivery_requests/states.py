@@ -6,8 +6,8 @@ class DeliverySG(StatesGroup):
     create_select_restaurant = State()
     create_enter_contact = State()
     create_select_bank = State()
+    input_commet = State()
     create_confirm = State()
     delete_list = State()
     delivery_list = State()
     delivery_list_choose_status = State()
-
