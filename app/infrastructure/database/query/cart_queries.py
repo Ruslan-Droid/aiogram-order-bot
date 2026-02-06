@@ -387,7 +387,7 @@ class CartRepository:
             )
             raise
 
-    async def get_user_carts(
+    async def get_user_carts_exclude_current(
             self,
             user_id: int,
             limit: int = 10,
@@ -397,12 +397,11 @@ class CartRepository:
         try:
             stmt = (
                 select(CartModel)
-                .filter(CartModel.user_id == user_id)
+                .filter(CartModel.user_id == user_id,
+                        CartModel.is_current != True)
                 .options(
-                    selectinload(CartModel.item_associations)
-                    .selectinload(CartItemModel.dish),
+                    selectinload(CartModel.item_associations),
                     selectinload(CartModel.restaurant),
-                    selectinload(CartModel.delivery_order)
                 )
                 .order_by(CartModel.created_at.desc())
                 .limit(limit)

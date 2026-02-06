@@ -1,7 +1,7 @@
 from aiogram_dialog import Dialog, Window
 from aiogram_dialog.widgets.text import Const, Format
 from aiogram_dialog.widgets.kbd import (
-    Back, Select, ScrollingGroup, Cancel, SwitchTo, Button
+    Back, Select, ScrollingGroup, Cancel, SwitchTo, Start
 )
 from aiogram_dialog.widgets.input import MessageInput
 
@@ -17,7 +17,7 @@ from app.bot.dialogs.utils.roles_utils import role_required
 from app.infrastructure.database.enums import UserRole
 
 cart_dialog = Dialog(
-    # MAIN MENU
+    # MAIN MENU ✅
     ############################
     Window(
         Format(
@@ -29,12 +29,14 @@ cart_dialog = Dialog(
             "💰 <b>Итого: {total_price:.2f} ₽</b>\n"
             "Комментарий: {note}"
         ),
+        # ✅
         SwitchTo(
             Const("📝 Добавить комментарий к заказу"),
             id="add_comment",
             state=CartSG.add_comment,
             when="is_attachable"  # Только для активной непустой корзины
         ),
+        # ✅
         SwitchTo(
             Const("🚚 Включить в доставку"),
             id="add_to_active_order",
@@ -47,6 +49,12 @@ cart_dialog = Dialog(
             state=CartSG.edit_cart,
             when="is_attachable",  # Только для активной непустой корзины
         ),
+        # ✅
+        SwitchTo(
+            Const("📊 История заказов"),
+            id="go_to_all_cart_button",
+            state=CartSG.show_cart_history,
+        ),
         # только для выездников и админов
         SwitchTo(
             Const("💎 Посмотреть все корзины для доставки"),
@@ -56,16 +64,12 @@ cart_dialog = Dialog(
                 [UserRole.DELIVERY, UserRole.ADMIN, UserRole.SUPER_ADMIN]
             ),
         ),
-        SwitchTo(
-            Const("📊 История заказов"),
-            id="go_to_all_cart_button",
-            state=CartSG.show_cart_history,
-        ),
         Cancel(Const("⬅️ Назад")),
         getter=get_cart_data,
         state=CartSG.main,
     ),
     ############################
+    # ✅
     # 📝 Окно добавления комментария
     Window(
         Format("✍️ <b>Введите комментарий к заказу:</b>\n\n"
@@ -82,6 +86,7 @@ cart_dialog = Dialog(
         state=CartSG.add_comment,
     ),
     ############################
+    # ✅
     # 🚚 Окно выбора заказа для привязки
     Window(
         Format(
@@ -109,7 +114,7 @@ cart_dialog = Dialog(
         state=CartSG.add_to_existing_order,
     ),
     ############################
-    # ✏️ Окно редактирования корзины
+    # ✏️ Окно редактирования корзины.
     Window(
         Format(
             "🔄 <b>Редактирование корзины</b>\n"
@@ -119,10 +124,10 @@ cart_dialog = Dialog(
         ),
         ScrollingGroup(
             Select(
-                Format("🍽 {item[0]}"),
+                Format("🍽 {item['name']}-{item['amount'}-{item['price']}"),
                 id="cart_item_select",
-                item_id_getter=lambda x: x[1],
-                items="cart_items_list",
+                item_id_getter=lambda x: x.get("id"),
+                items="cart_items",
                 on_click=on_cart_item_selected,
                 when="not cart_empty"
             ),
@@ -134,7 +139,6 @@ cart_dialog = Dialog(
             Const("➕ Добавить ещё блюда"),
             id="add_more_dishes",
             state=MenuViewSG.restaurants,
-            when="not cart_empty"
         ),
         SwitchTo(
             Const("⬅️ Назад"),
@@ -163,13 +167,15 @@ cart_dialog = Dialog(
         state=CartSG.edit_cart_item,
     ),
 
-    # 📊 Окно истории заказов (НОВОЕ)
+    # 📊 Окно истории заказов ✅
     Window(
         Format(
             "📊 <b>История ваших заказов</b>\n\n"
+            "🟡 Не включен в доставку\n"
+            "🔵 Включен в доставку\n"
+            "🟢 Доставлен\n\n"
             "Всего заказов: {total_orders}\n"
             "Общая сумма: {total_spent:.2f} ₽\n\n"
-            "Найдено корзин: {carts_count}"
         ),
         ScrollingGroup(
             Select(

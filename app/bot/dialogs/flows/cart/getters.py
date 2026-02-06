@@ -5,8 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.enums.cart_statuses import CartStatus
 from app.infrastructure.database.enums.order_statuses import OrderStatus
-from app.infrastructure.database.models import DeliveryOrderModel, CartModel
-from app.infrastructure.database.query.cart_queries import CartRepository
+from app.infrastructure.database.models import DeliveryOrderModel, CartModel, UserModel
+from app.infrastructure.database.query.cart_queries import CartRepository, CartItemRepository
+from app.infrastructure.database.query.dish_queries import DishRepository
 from app.infrastructure.database.query.order_queries import OrderRepository
 
 
@@ -90,15 +91,7 @@ async def get_cart_items_for_edit(
 ) -> Dict[str, Any]:
     """Получает список блюд в корзине для редактирования"""
     cart_id = dialog_manager.dialog_data.get("cart_id")
-    cart = await CartRepository(session).get_cart_by_id(cart_id)
-
-    if not cart or not cart.item_associations:
-        return {
-            "cart_items": [],
-            "cart_empty": True,
-            "restaurant_name": cart.restaurant.name if cart and cart.restaurant else "",
-            "total_price": cart.total_price if cart else 0.0
-        }
+    cart: CartModel = await CartRepository(session).get_cart_by_id(cart_id)
 
     items = []
     for item in cart.item_associations:
@@ -112,9 +105,9 @@ async def get_cart_items_for_edit(
 
     return {
         "cart_items": items,
-        "cart_empty": False,
         "restaurant_name": cart.restaurant.name if cart.restaurant else "",
-        "total_price": cart.total_price or 0.0
+        "total_price": cart.total_price or 0.0,
+        "cart_status": cart.status.value,
     }
 
 
@@ -152,38 +145,21 @@ async def get_cart_history(
         user_row: UserModel,
         **kwargs
 ) -> Dict[str, Any]:
-    """Получает историю заказов пользователя (корзины без is_current=True)"""
     # Получаем все корзины пользователя, кроме текущей
-    user_carts = await CartRepository(session).get_user_carts(
+    user_carts = await CartRepository(session).get_user_carts_exclude_current(
         user_id=user_row.id,
     )
 
     carts_info = []
     for cart in user_carts:
-        # Формируем информацию о корзине
-        items_text = "\n".join([
-            f"  • {item.dish.name} - {item.amount} шт. x {item.price_at_time}₽"
-            for item in cart.item_associations[:3]  # Показываем первые 3 позиции
-        ])
-
-        if len(cart.item_associations) > 3:
-            items_text += f"\n  ... и ещё {len(cart.item_associations) - 3} позиций"
-
-        status_emoji = {
-            CartStatus.ACTIVE: "🟢",
-            CartStatus.ORDERED: "🟡",
-            CartStatus.CANCELLED: "🔴"
-        }.get(cart.status, "⚪")
-
         carts_info.append((
-            f"{status_emoji} {cart.restaurant.name}\n"
+            f"{cart.status.value[0]} {cart.restaurant.name}\n"
             f"💰 {cart.total_price or 0:.2f} ₽ | 📅 {cart.created_at.strftime('%d.%m.%Y')}\n",
             cart.id
         ))
 
     return {
         "carts": carts_info,
-        "carts_count": len(carts_info),
         "total_orders": len(user_carts),
         "total_spent": sum(cart.total_price or 0 for cart in user_carts)
     }
