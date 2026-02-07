@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.enums.cart_statuses import CartStatus
 from app.infrastructure.database.enums.order_statuses import OrderStatus
-from app.infrastructure.database.models import DeliveryOrderModel, CartModel, UserModel
+from app.infrastructure.database.models import DeliveryOrderModel, CartModel, UserModel, CartItemModel, DishModel
 from app.infrastructure.database.query.cart_queries import CartRepository, CartItemRepository
 from app.infrastructure.database.query.dish_queries import DishRepository
 from app.infrastructure.database.query.order_queries import OrderRepository
@@ -92,9 +92,10 @@ async def get_cart_items_for_edit(
     """Получает список блюд в корзине для редактирования"""
     cart_id = dialog_manager.dialog_data.get("cart_id")
     cart: CartModel = await CartRepository(session).get_cart_by_id(cart_id)
+    cart_items: list[CartItemModel] = await CartItemRepository(session).get_items_by_cart_id(cart_id)
 
     items = []
-    for item in cart.item_associations:
+    for item in cart_items:
         items.append({
             "id": item.dish_id,
             "name": item.dish.name,
@@ -120,16 +121,8 @@ async def get_cart_item_for_edit(
     cart_id = dialog_manager.dialog_data.get("cart_id")
     dish_id = dialog_manager.dialog_data.get("edit_dish_id")
 
-    cart_item = await CartItemRepository(session).get_cart_item(cart_id, dish_id)
-    dish = await DishRepository(session).get_dish_by_id(dish_id)
-
-    if not cart_item or not dish:
-        return {
-            "dish_name": "Не найдено",
-            "current_amount": 0,
-            "price": 0,
-            "total": 0
-        }
+    cart_item: CartItemModel = await CartItemRepository(session).get_cart_item(cart_id, dish_id)
+    dish: DishModel = await DishRepository(session).get_dish_by_id(dish_id)
 
     return {
         "dish_name": dish.name,
@@ -174,17 +167,11 @@ async def get_active_orders_for_delivery(
     today = datetime.today().date()
     active_orders = await OrderRepository(session).get_orders_by_date(
         order_date=today,
-        status=OrderStatus.COLLECTING
     )
-
     orders_info = []
     for order in active_orders:
-        # Считаем количество корзин в заказе
-        carts_count = len(order.carts) if order.carts else 0
-
         orders_info.append((
             f"🚚 {order.restaurant.name}\n"
-            f"📦 {carts_count} корзин | 💰 {order.total_amount:.2f} ₽\n"
             f"⏰ {order.created_at.strftime('%H:%M')}",
             order.id
         ))
@@ -219,16 +206,10 @@ async def get_carts_for_order(
         user = cart.user
         username = user.mention if user else "Без пользователя"
 
-        items_text = "\n".join([
-            f"    • {item.dish.name} - {item.amount} шт."
-            for item in cart.item_associations
-        ])
-
         carts_info.append((
             f"👤 {username}\n"
             f"📦 Корзина #{cart.id}\n"
-            f"💰 {cart.total_price or 0:.2f} ₽\n"
-            f"{items_text}",
+            f"💰 {cart.total_price or 0:.2f} ₽\n",
             cart.id
         ))
 

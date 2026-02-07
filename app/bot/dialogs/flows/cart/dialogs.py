@@ -1,7 +1,7 @@
 from aiogram_dialog import Dialog, Window
 from aiogram_dialog.widgets.text import Const, Format
 from aiogram_dialog.widgets.kbd import (
-    Back, Select, ScrollingGroup, Cancel, SwitchTo, Start
+    Back, Select, ScrollingGroup, Cancel, SwitchTo, Start, Button
 )
 from aiogram_dialog.widgets.input import MessageInput
 
@@ -10,7 +10,8 @@ from app.bot.dialogs.flows.cart.getters import get_cart_data, get_comment_data, 
     get_cart_items_for_edit, get_cart_item_for_edit, get_cart_history, get_active_orders_for_delivery, \
     get_carts_for_order
 from app.bot.dialogs.flows.cart.handlers import (
-    on_order_selected, on_comment_entered, on_cart_item_selected, on_update_amount, on_order_for_delivery_selected
+    on_order_selected, on_comment_entered, on_cart_item_selected, on_update_amount, on_order_for_delivery_selected,
+    selected_order_from_history, send_all_carts_message
 )
 from app.bot.dialogs.flows.menu_view.states import MenuViewSG
 from app.bot.dialogs.utils.roles_utils import role_required
@@ -43,6 +44,7 @@ cart_dialog = Dialog(
             state=CartSG.add_to_existing_order,
             when="is_attachable",  # Только для активной непустой корзины
         ),
+        # ✅
         SwitchTo(
             Const("✏️ Отредактировать корзину"),
             id="go_to_edit_cart_button",
@@ -114,6 +116,7 @@ cart_dialog = Dialog(
         state=CartSG.add_to_existing_order,
     ),
     ############################
+    # ✅
     # ✏️ Окно редактирования корзины.
     Window(
         Format(
@@ -124,18 +127,17 @@ cart_dialog = Dialog(
         ),
         ScrollingGroup(
             Select(
-                Format("🍽 {item['name']}-{item['amount'}-{item['price']}"),
+                Format("🍽 {item[name]} - {item[amount]}шт. - {item[total]}₽"),
                 id="cart_item_select",
                 item_id_getter=lambda x: x.get("id"),
                 items="cart_items",
                 on_click=on_cart_item_selected,
-                when="not cart_empty"
             ),
             id="cart_items_group",
             width=1,
             height=8,
         ),
-        SwitchTo(
+        Start(
             Const("➕ Добавить ещё блюда"),
             id="add_more_dishes",
             state=MenuViewSG.restaurants,
@@ -148,15 +150,16 @@ cart_dialog = Dialog(
         getter=get_cart_items_for_edit,
         state=CartSG.edit_cart,
     ),
+    # ✅
     # 🔢 Окно редактирования количества блюда
     Window(
         Format(
             "🔢 <b>Изменение количества</b>\n\n"
             "Блюдо: <b>{dish_name}</b>\n"
-            "Текущее количество: {current_amount}\n"
+            "Текущее количество: {current_amount} шт.\n"
             "Цена за шт.: {price:.2f} ₽\n"
             "Итого: {total:.2f} ₽\n\n"
-            "Введите новое количество (0 для удаления):"
+            "<b>Введите новое количество (0 для удаления):</b>"
         ),
         MessageInput(
             func=on_update_amount,
@@ -166,7 +169,7 @@ cart_dialog = Dialog(
         getter=get_cart_item_for_edit,
         state=CartSG.edit_cart_item,
     ),
-
+    # ✅
     # 📊 Окно истории заказов ✅
     Window(
         Format(
@@ -183,6 +186,7 @@ cart_dialog = Dialog(
                 id="history_cart_select",
                 item_id_getter=lambda x: x[1],
                 items="carts",
+                on_click=selected_order_from_history,
             ),
             id="history_group",
             width=1,
@@ -244,6 +248,11 @@ cart_dialog = Dialog(
             id="order_carts_group",
             width=1,
             height=8,
+        ),
+        Button(
+            Const("✅ Отправить все корзины сообщением"),
+            id="send_all_carts_button",
+            on_click=send_all_carts_message,
         ),
         SwitchTo(
             Const("⬅️ Назад к заявкам"),

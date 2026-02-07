@@ -7,6 +7,7 @@ from sqlalchemy.orm import selectinload
 
 from app.infrastructure.database.models import DishModel
 from app.infrastructure.database.models.cart import CartModel, CartItemModel, CartStatus
+from app.infrastructure.database.query.order_queries import OrderRepository
 
 logger = logging.getLogger(__name__)
 
@@ -314,6 +315,7 @@ class CartRepository:
             )
 
             await self.session.execute(stmt)
+            await OrderRepository(self.session).update_order_total_amount(order_id)
             await self.session.commit()
             logger.info(
                 "Attached cart %s to order %s, status changed to ATTACHED",
@@ -541,36 +543,30 @@ class CartItemRepository:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def add_or_update_item(
+    async def update_item_amount(
             self,
             cart_id: int,
             dish_id: int,
             amount: int = 1
     ) -> CartItemModel:
-        """Добавить или обновить товар в корзине"""
-        # Получаем цену блюда
-        dish_stmt = select(DishModel).where(DishModel.id == dish_id)
-        dish_result = await self.session.execute(dish_stmt)
-        dish = dish_result.scalar_one()
-
-        # Проверяем, есть ли уже этот товар в корзине
-        existing = await self.get_cart_item(cart_id, dish_id)
-
-        if existing:
-            existing.amount = amount
-            existing.price_at_time = dish.price
-            item = existing
-        else:
-            item = CartItemModel(
-                cart_id=cart_id,
-                dish_id=dish_id,
-                amount=amount,
-                price_at_time=dish.price
+        try:
+            # Получаем существующую запись в корзине
+            stmt = (
+                select(CartItemModel)
+                .where(CartItemModel.cart_id == cart_id)
+                .where(CartItemModel.dish_id == dish_id)
             )
-            self.session.add(item)
+            result = await self.session.execute(stmt)
+            cart_item = result.scalar_one_or_none()
+            cart_item.amount = amount
+            await self.session.commit()
+            await self.session.refresh(cart_item)
+            return cart_item
 
-        await self.session.commit()
-        return item
+        except Exception as e:
+            logger.error("Error updating item amount for cart %s: %s", cart_id, amount, exc_info=e)
+            await self.session.rollback()
+            raise
 
     async def increment_item(self, cart_id: int, dish_id: int) -> CartItemModel:
         """Увеличить количество товара на 1"""

@@ -180,13 +180,13 @@ async def create_order(
 
     await send_order_notifications(
         bot=callback.bot,
+        deliverer=user,
         session=session,
         order_id=order.id,
         restaurant_name=restaurant_name,
         phone=phone,
         bank=bank,
         comment=comment,
-        exclude_telegram_id=user.telegram_id  # Исключаем создателя заказа
     )
 
     await callback.message.answer(f"✅ Заявка #{order.id} в <b>{restaurant_name}</b> создана!")

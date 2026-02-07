@@ -1,11 +1,12 @@
 import logging
 from datetime import datetime, date, timedelta
-from typing import Any
 
 from sqlalchemy import select, update, func, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.infrastructure.database.enums import CartStatus
+from app.infrastructure.database.models import CartModel, CartItemModel, DishModel
 from app.infrastructure.database.models.delivery_order import DeliveryOrderModel
 from app.infrastructure.database.enums.order_statuses import OrderStatus
 from app.infrastructure.database.enums.payment_methods import PaymentMethod
@@ -133,53 +134,6 @@ class OrderRepository:
             logger.error("Error deleting order: %s", str(e))
             raise
 
-    async def add_items_to_order(
-            self,
-            order_id: int,
-            items: list[tuple[int, int, float, int | None]]  # (dish_id, quantity, price, user_id)
-    ) -> None:
-        try:
-            for dish_id, quantity, price, user_id in items:
-                order_item = OrderItemModel(
-                    order_id=order_id,
-                    dish_id=dish_id,
-                    quantity=quantity,
-                    price=price,
-                    user_id=user_id
-                )
-                self.session.add(order_item)
-
-            await self.update_order_total(order_id)
-            await self.session.commit()
-            logger.info("Added %s items to order: %s", len(items), order_id)
-
-        except Exception as e:
-            await self.session.rollback()
-            logger.error("Error adding items to order %s: %s", order_id, str(e))
-            raise
-
-    async def update_order_total(self, order_id: int) -> None:
-        try:
-            # Вычисляем общую сумму заказа
-            subquery = (
-                select(
-                    func.sum(OrderItemModel.quantity * OrderItemModel.price)
-                )
-                .filter(OrderItemModel.order_id == order_id)
-                .scalar_subquery()
-            )
-
-            stmt = (
-                update(DeliveryOrderModel)
-                .where(DeliveryOrderModel.id == order_id)
-                .values(total_amount=subquery)
-            )
-            await self.session.execute(stmt)
-
-        except Exception as e:
-            logger.error("Error updating order total for order %s: %s", order_id, str(e))
-            raise
-
     async def assign_delivery_person(self, order_id: int, delivery_person_id: int) -> None:
         try:
             stmt = (
@@ -299,5 +253,63 @@ class OrderRepository:
 
         except Exception as e:
             logger.error("Error updating order %s status: %s", order_id, str(e))
+            await self.session.rollback()
+            raise
+
+    async def get_order_with_carts(self, order_id: int) -> DeliveryOrderModel | None:
+        """Получить заказ вместе с корзинами и их содержимым"""
+        try:
+            stmt = (
+                select(DeliveryOrderModel)
+                .filter(DeliveryOrderModel.id == order_id)
+                .options(
+                    selectinload(DeliveryOrderModel.restaurant),
+                    selectinload(DeliveryOrderModel.carts).selectinload(CartModel.user),
+                    selectinload(DeliveryOrderModel.carts)
+                    .selectinload(CartModel.item_associations)
+                    .selectinload(CartItemModel.dish)
+                    .selectinload(DishModel.category),
+                )
+            )
+            order = await self.session.scalar(stmt)
+
+            if order:
+                await self.update_order_total_amount(order_id)
+                # Перезагружаем заказ с обновленной суммой
+                await self.session.refresh(order)
+                logger.info("Fetched order with carts by id: %s", order_id)
+            else:
+                logger.info("Order not found by id: %s", order_id)
+            return order
+
+        except Exception as e:
+            logger.error("Error getting order with carts by id %s: %s", order_id, str(e))
+            raise
+
+    async def update_order_total_amount(self, order_id: int) -> float:
+        """Пересчитать и обновить общую сумму заказа на основе корзин"""
+        try:
+            # Получаем все корзины заказа с их суммами
+            stmt = (
+                select(func.coalesce(func.sum(CartModel.total_price), 0))
+                .filter(CartModel.delivery_order_id == order_id)
+                .filter(CartModel.status.in_([CartStatus.ORDERED]))
+            )
+            total_sum = await self.session.scalar(stmt) or 0.0
+
+            # Обновляем сумму в заказе
+            update_stmt = (
+                update(DeliveryOrderModel)
+                .where(DeliveryOrderModel.id == order_id)
+                .values(total_amount=total_sum)
+            )
+            await self.session.execute(update_stmt)
+            await self.session.commit()
+
+            logger.info("Updated total amount for order %s: %.2f", order_id, total_sum)
+            return total_sum
+
+        except Exception as e:
+            logger.error("Error updating total amount for order %s: %s", order_id, str(e))
             await self.session.rollback()
             raise

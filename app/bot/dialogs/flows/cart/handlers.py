@@ -1,11 +1,17 @@
-from aiogram.types import CallbackQuery, Message
+from aiogram import Bot
+from aiogram.types import CallbackQuery, Message, InlineKeyboardButton
+from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram_dialog import DialogManager
 from aiogram_dialog.widgets.input import MessageInput
-from aiogram_dialog.widgets.kbd import Select
+from aiogram_dialog.widgets.kbd import Select, Button
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.dialogs.flows.cart.states import CartSG
+from app.bot.dialogs.utils.message_with_all_carts_and_items import send_carts_summary_message
+from app.infrastructure.database.enums import CartStatus
+from app.infrastructure.database.models import CartModel, DeliveryOrderModel
 from app.infrastructure.database.query.cart_queries import CartRepository, CartItemRepository
+from app.infrastructure.database.query.order_queries import OrderRepository
 
 
 async def on_comment_entered(
@@ -73,7 +79,7 @@ async def on_update_amount(
             # Обновляем количество
             cart_item = await CartItemRepository(session).get_cart_item(cart_id, dish_id)
             if cart_item:
-                await CartItemRepository(session).update_cart_item_amount(
+                await CartItemRepository(session).update_item_amount(
                     cart_id, dish_id, new_amount
                 )
                 await message.answer(f"✅ Количество обновлено: {new_amount}")
@@ -86,8 +92,7 @@ async def on_update_amount(
 
     except ValueError:
         await message.answer("❌ Пожалуйста, введите число")
-    except Exception as e:
-        logger.error(f"Error updating cart item amount: {e}")
+    except Exception:
         await message.answer("❌ Произошла ошибка")
 
 
@@ -100,3 +105,57 @@ async def on_order_for_delivery_selected(
     """Выбор заказа для просмотра всех корзин в нём"""
     manager.dialog_data["selected_order_id"] = int(item_id)
     await manager.switch_to(CartSG.show_carts_for_order)
+
+
+async def selected_order_from_history(
+        callback: CallbackQuery,
+        widget: Select,
+        manager: DialogManager,
+        item: str
+) -> None:
+    session: AsyncSession = manager.middleware_data["session"]
+    cart: CartModel = await CartRepository(session=session).get_cart_by_id(int(item))
+
+    if cart.status == CartStatus.ORDERED:
+        manager.dialog_data["cart_id"] = cart.id
+        await manager.switch_to(CartSG.edit_cart)
+    else:
+        await callback.answer("Заказ уже собран и не может быть отредактирован.\n"
+                              "Ожидайте доставку!")
+
+
+async def send_all_carts_message(
+        callback: CallbackQuery,
+        widget: Button,
+        dialog_manager: DialogManager,
+) -> None:
+    """Отправить сообщение со всеми корзинами в заказе"""
+    try:
+        session: AsyncSession = dialog_manager.middleware_data["session"]
+        order_id = dialog_manager.dialog_data.get("selected_order_id")
+
+        if not order_id:
+            await callback.answer("Заказ не выбран", show_alert=True)
+            return
+
+        # Получаем заказ с корзинами
+        order = await OrderRepository(session).get_order_with_carts(order_id)
+
+        if not order or not order.carts:
+            await callback.answer("Заказ или корзины не найдены", show_alert=True)
+            return
+
+        # Получаем chat_id для отправки сообщения
+        chat_id = callback.message.chat.id
+
+        # Формируем сообщение со всеми корзинами
+        await send_carts_summary_message(
+            bot=callback.bot,
+            chat_id=chat_id,
+            order=order,
+        )
+        await callback.answer()
+
+    except Exception:
+        await callback.answer("Ошибка при отправке сообщения", show_alert=True)
+

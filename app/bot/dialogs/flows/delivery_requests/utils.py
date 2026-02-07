@@ -6,6 +6,7 @@ from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramForbiddenError, TelegramRetryAfter
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.infrastructure.database.models import UserModel
 from app.infrastructure.database.query.user_queries import UserRepository
 
 logger = logging.getLogger(__name__)
@@ -18,17 +19,18 @@ async def send_order_notifications(
         restaurant_name: str,
         phone: str,
         bank: str,
-        exclude_telegram_id: int,
+        deliverer: UserModel,
         comment: str,
-        delay_seconds: float = 0.05  # 20 сообщений в секунду (меньше лимита Telegram 30/сек)
+        delay_seconds: float = 0.06  # 20 сообщений в секунду (меньше лимита Telegram 30/сек)
 ) -> None:
     try:
         # Получаем активных пользователей (исключая определенные роли и создателя)
         users = await UserRepository(session).get_active_users_except(
-            exclude_telegram_id=exclude_telegram_id
+            exclude_telegram_id=deliverer.telegram_id
         )
 
         message_text = (
+            f"@{deliverer.username}\n"
             f"📦 <b>Новая заявка #{order_id}</b>\n"
             f"📍 Ресторан: {restaurant_name}\n"
             f"📞 Телефон: <code>{phone}</code>\n"
