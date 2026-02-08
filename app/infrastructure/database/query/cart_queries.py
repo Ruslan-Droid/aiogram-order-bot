@@ -24,7 +24,7 @@ class CartRepository:
                     selectinload(CartModel.item_associations)
                     .selectinload(CartItemModel.dish),
                     selectinload(CartModel.restaurant),
-                    selectinload(CartModel.user)
+                    selectinload(CartModel.user),
                 )
             )
             cart = await self.session.scalar(stmt)

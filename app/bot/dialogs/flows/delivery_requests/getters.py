@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.infrastructure.database.enums.order_statuses import OrderStatus
 from app.infrastructure.database.enums.payment_methods import PaymentMethod
 from app.infrastructure.database.enums.user_roles import UserRole
-from app.infrastructure.database.models import UserModel
+from app.infrastructure.database.models import UserModel, RestaurantModel
 from app.infrastructure.database.query.restaurant_queries import RestaurantRepository
 from app.infrastructure.database.query.order_queries import OrderRepository
 
@@ -16,7 +16,7 @@ async def get_restaurants(
         session: AsyncSession,
         **kwargs
 ) -> dict:
-    restaurants = await RestaurantRepository(session).get_all_active_restaurants()
+    restaurants: list[RestaurantModel] = await RestaurantRepository(session).get_all_active_restaurants()
 
     restaurants_list = [
         {"id": rest.id, "name": rest.name} for rest in restaurants

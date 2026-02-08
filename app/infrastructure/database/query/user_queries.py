@@ -55,7 +55,6 @@ class UserRepository:
             'first_name': first_name,
             'last_name': last_name,
             'language_code': language_code,
-            "role": role,
         }
 
         on_conflict_stmt = insert_stmt.on_conflict_do_update(
@@ -237,3 +236,20 @@ class UserRepository:
         except Exception as e:
             logger.error("Error getting users by role: %s", str(e))
         raise
+
+    async def get_all_users_except_unknown(
+            self
+    ) -> list[UserModel]:
+        try:
+            stmt = select(UserModel).where(
+                UserModel.role != UserRole.UNKNOWN,
+                UserModel.is_active == True
+            )
+
+            result = await self.session.execute(stmt)
+            users = list(result.scalars().all())
+            return users
+
+        except Exception as e:
+            logger.error("Error getting users: %s", str(e))
+            raise

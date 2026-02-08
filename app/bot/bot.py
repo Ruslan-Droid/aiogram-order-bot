@@ -14,6 +14,7 @@ from aiogram_dialog.api.exceptions import UnknownIntent, UnknownState
 from fluentogram import TranslatorHub
 
 from app.bot.dialogs.flows import dialogs
+from app.bot.first_admin_creation import create_admin
 from app.bot.handlers import routers
 from app.bot.handlers.errors import on_unknown_intent, on_unknown_state
 from app.bot.i18n.translator_hub import create_translator_hub
@@ -99,6 +100,8 @@ async def main():
     dp.observers[DIALOG_EVENT_NAME].outer_middleware(GetUserMiddleware())
     dp.observers[DIALOG_EVENT_NAME].outer_middleware(ShadowBanMiddleware())
     dp.observers[DIALOG_EVENT_NAME].outer_middleware(TranslatorRunnerMiddleware())
+
+    await create_admin(config=config, async_session_maker=async_session_maker)
 
     try:
         await dp.start_polling(

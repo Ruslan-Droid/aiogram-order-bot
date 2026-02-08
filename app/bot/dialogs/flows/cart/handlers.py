@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.dialogs.flows.cart.states import CartSG
 from app.bot.dialogs.utils.message_with_all_carts_and_items import send_carts_summary_message
-from app.infrastructure.database.enums import CartStatus
+from app.infrastructure.database.enums import CartStatus, OrderStatus
 from app.infrastructure.database.models import CartModel, DeliveryOrderModel
 from app.infrastructure.database.query.cart_queries import CartRepository, CartItemRepository
 from app.infrastructure.database.query.order_queries import OrderRepository
@@ -116,12 +116,24 @@ async def selected_order_from_history(
     session: AsyncSession = manager.middleware_data["session"]
     cart: CartModel = await CartRepository(session=session).get_cart_by_id(int(item))
 
-    if cart.status == CartStatus.ORDERED:
-        manager.dialog_data["cart_id"] = cart.id
-        await manager.switch_to(CartSG.edit_cart)
+    # Проверяем, привязана ли корзина к заказу
+    if cart and cart.delivery_order_id:
+        order = await OrderRepository(session).get_order_with_carts(cart.delivery_order_id)
+        if order:
+            if order.status == OrderStatus.COLLECTING:
+                manager.dialog_data["cart_id"] = cart.id
+                await manager.switch_to(CartSG.edit_cart)
+            else:
+                await callback.answer(f"❌ Редактирование запрещено! Статус заказа: {order.status.value}",
+                                      show_alert=True)
+                return
     else:
-        await callback.answer("Заказ уже собран и не может быть отредактирован.\n"
-                              "Ожидайте доставку!")
+        if cart.status == CartStatus.ORDERED:
+            manager.dialog_data["cart_id"] = cart.id
+            await manager.switch_to(CartSG.edit_cart)
+        else:
+            await callback.answer("Заказ уже собран и не может быть отредактирован.\n"
+                                  "Ожидайте доставку!", show_alert=True)
 
 
 async def send_all_carts_message(
@@ -158,4 +170,3 @@ async def send_all_carts_message(
 
     except Exception:
         await callback.answer("Ошибка при отправке сообщения", show_alert=True)
-

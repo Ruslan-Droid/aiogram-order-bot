@@ -1,12 +1,13 @@
 import re
 
 from aiogram.types import Message, CallbackQuery
-from aiogram_dialog import DialogManager, ShowMode
-from aiogram_dialog.widgets.input import MessageInput, ManagedTextInput
+from aiogram_dialog import DialogManager
+from aiogram_dialog.widgets.input import ManagedTextInput
 from aiogram_dialog.widgets.kbd import Select
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.infrastructure.database.models import RestaurantModel, CategoryModel
 from app.infrastructure.database.query.restaurant_queries import RestaurantRepository
 from app.infrastructure.database.query.category_queries import CategoryRepository
 from app.infrastructure.database.query.dish_queries import DishRepository
@@ -14,7 +15,6 @@ from .states import MenuSettingsSG
 
 
 # 🏢 Обработчики для заведений
-# ✅
 def validate_name(text: str) -> str:
     if not text:
         raise TypeError("Введите текст")
@@ -22,7 +22,6 @@ def validate_name(text: str) -> str:
     return text.strip()
 
 
-# ✅
 async def process_success_restaurant_name(
         message: Message,
         widget: ManagedTextInput,
@@ -40,7 +39,6 @@ async def process_success_restaurant_name(
     await dialog_manager.switch_to(MenuSettingsSG.restaurant_menu)
 
 
-# ✅
 async def process_error_name(
         message: Message,
         widget: ManagedTextInput,
@@ -52,45 +50,41 @@ async def process_error_name(
     await message.answer(f"❌ Ошибка: {error_message}")
 
 
-# ✅
 async def on_restaurant_selected_delete(
         callback: CallbackQuery,
         widget: Select,
         manager: DialogManager,
         item_id: str
-):
+) -> None:
     session: AsyncSession = manager.middleware_data["session"]
-    repo = RestaurantRepository(session)
 
     try:
-        await repo.update_restaurant_status(int(item_id), is_active=False)
+        await RestaurantRepository(session).update_restaurant_status(int(item_id), is_active=False)
         await callback.message.answer("✅ Заведение успешно удалено")
+
     except Exception as error:
         await callback.message.answer(f"Error: {str(error)}")
 
     await manager.switch_to(MenuSettingsSG.delete_restaurant)
 
 
-# ✅
 async def on_restaurant_selected_recover(
         callback: CallbackQuery,
         widget: Select,
         manager: DialogManager,
         item_id: str
-):
+) -> None:
     session: AsyncSession = manager.middleware_data["session"]
-    repo = RestaurantRepository(session)
 
     try:
-        await repo.update_restaurant_status(int(item_id), is_active=True)
+        await RestaurantRepository(session).update_restaurant_status(int(item_id), is_active=True)
         await callback.message.answer("✅ Заведение успешно удалено")
     except Exception as error:
         await callback.message.answer(f"Error: {str(error)}")
 
-    await manager.switch_to(MenuSettingsSG.delete_restaurant)
+    await manager.switch_to(MenuSettingsSG.restaurant_menu)
 
 
-# ✅
 async def on_restaurant_selected_rename(
         callback: CallbackQuery,
         widget: Select,
@@ -101,7 +95,6 @@ async def on_restaurant_selected_rename(
     await manager.switch_to(state=MenuSettingsSG.rename_restaurant_input)
 
 
-# ✅
 async def process_success_restaurant_rename(
         message: Message,
         widget: ManagedTextInput,
@@ -121,20 +114,21 @@ async def process_success_restaurant_rename(
     await dialog_manager.switch_to(MenuSettingsSG.rename_restaurant)
 
 
-# Обработчики для категорий
-# ✅
+# 📁 Обработчики для категорий
 async def on_restaurant_selected_for_categories(
         callback: CallbackQuery,
         widget: Select,
         manager: DialogManager,
         item_id: str
-):
+) -> None:
     session = manager.middleware_data["session"]
 
-    restaurant = await RestaurantRepository(session).get_restaurant_by_id(int(item_id))
+    restaurant: RestaurantModel = await RestaurantRepository(session).get_restaurant_by_id(int(item_id))
+
     if restaurant:
         manager.dialog_data["restaurant_id"] = restaurant.id
         manager.dialog_data["restaurant_name"] = restaurant.name
+
     await manager.switch_to(state=MenuSettingsSG.categories_menu)
 
 
@@ -189,7 +183,7 @@ async def on_category_selected_delete(
         widget: Select,
         manager: DialogManager,
         item_id: str
-):
+) -> None:
     session: AsyncSession = manager.middleware_data["session"]
 
     try:
@@ -201,19 +195,20 @@ async def on_category_selected_delete(
     await manager.switch_to(MenuSettingsSG.delete_category)
 
 
-# Обработчики для блюд
+# 🍽️ Обработчики для блюд
 async def on_restaurant_selected_for_dishes(
         callback: CallbackQuery,
         widget: Select,
         manager: DialogManager,
         item_id: str
-):
+) -> None:
     session = manager.middleware_data["session"]
 
-    restaurant = await RestaurantRepository(session).get_restaurant_by_id(int(item_id))
+    restaurant: RestaurantModel = await RestaurantRepository(session).get_restaurant_by_id(int(item_id))
     if restaurant:
         manager.dialog_data["restaurant_id"] = restaurant.id
         manager.dialog_data["restaurant_name"] = restaurant.name
+
     await manager.switch_to(state=MenuSettingsSG.select_category_for_dish)
 
 
@@ -224,9 +219,8 @@ async def on_category_selected_for_dishes(
         item_id: str
 ):
     session = manager.middleware_data["session"]
-    repo = CategoryRepository(session)
 
-    category = await repo.get_category_by_id(int(item_id))
+    category: CategoryModel = await CategoryRepository(session).get_category_by_id(int(item_id))
     if category:
         manager.dialog_data["category_id"] = category.id
         manager.dialog_data["category_name"] = category.name
@@ -273,6 +267,7 @@ async def process_success_dish_name_and_price(
     try:
         await DishRepository(session).create_dish(name=dish_name, price=price, category_id=int(category_id))
         await message.answer(f"✅ Блюдо успешно создано: {dish_name} цена {price}")
+
     except Exception as error:
         await message.answer(f"Error: {error}")
 
@@ -284,12 +279,13 @@ async def on_dish_selected_delete(
         widget: Select,
         manager: DialogManager,
         item_id: str
-):
+) -> None:
     session: AsyncSession = manager.middleware_data["session"]
 
     try:
         await DishRepository(session).update_dish_status(int(item_id), status=False)
         await callback.message.answer("✅ Блюдо успешно удалено")
+
     except Exception as error:
         await callback.message.answer(f"Error: {str(error)}")
 
@@ -318,6 +314,7 @@ async def process_success_dish_rename(
     try:
         await DishRepository(session).update_dish_name(name=text, dish_id=int(dish_id))
         await message.answer(f"✅ Блюдо успешно переименовано: {text}")
+
     except Exception as error:
         await message.answer(f"Error: {error}")
 

@@ -36,8 +36,8 @@ async def command_start_handler(
         session: AsyncSession,
         user_row: UserModel | None,
 ) -> None:
+    user_rep: UserRepository = UserRepository(session)
     if user_row is None:
-        user_rep: UserRepository = UserRepository(session)
         user_row: UserModel = await user_rep.create_or_update_user(
             telegram_id=message.from_user.id,
             username=message.from_user.username,
@@ -47,6 +47,14 @@ async def command_start_handler(
         )
 
         await notify_admins_about_new_user(bot, session, user_row)
+    else:
+        user_row: UserModel = await user_rep.create_or_update_user(
+            telegram_id=message.from_user.id,
+            username=message.from_user.username,
+            first_name=message.from_user.first_name,
+            last_name=message.from_user.last_name,
+            language_code=message.from_user.language_code,
+        )
 
     await bot.set_my_commands(
         commands=get_main_menu_commands(i18n=i18n),
@@ -113,6 +121,25 @@ async def handle_admin_action(
         await callback_query.answer("Пользователь не найден")
         await callback_query.message.edit_text(
             f"{callback_query.message.text}\n\n❌ Пользователь не найден в базе"
+        )
+        return
+
+    if target_user.role != UserRole.UNKNOWN:
+        # Уже обработан другим админом
+        role_text = {
+            UserRole.MEMBER: "авторизован",
+            UserRole.BANNED: "заблокирован",
+        }.get(target_user.role, "обработан")
+
+        await callback_query.answer(f"Пользователь уже {role_text}", show_alert=True)
+
+        # Обновляем текст сообщения, убираем кнопки
+        await callback_query.message.edit_text(
+            f"{callback_query.message.text}\n\n"
+            f"⚠️ <b>Статус изменен другим администратором</b>\n"
+            f"Текущая роль: {target_user.role.value}\n"
+            f"Время проверки: {datetime.now().strftime('%H:%M:%S')}",
+            reply_markup=None  # Убираем кнопки
         )
         return
 

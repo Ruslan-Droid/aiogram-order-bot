@@ -28,7 +28,7 @@ async def get_user_info(
 ) -> Dict[str, Any]:
     user_id = dialog_manager.dialog_data.get("user_id_to_change")
 
-    user = await UserRepository(session).get_user_by_telegram_id(telegram_id=user_id)
+    user = await UserRepository(session).get_user_by_telegram_id(telegram_id=int(user_id))
 
     return {
         "user": user,
@@ -59,4 +59,43 @@ async def get_available_roles(
     return {
         "roles": available_roles,
         "current_admin_role": user_row.role
+    }
+
+
+async def get_users_for_role_change(
+        dialog_manager: DialogManager,
+        session: AsyncSession,
+        user_row: UserModel,
+        **kwargs
+) -> Dict[str, Any]:
+    # Получаем всех пользователей кроме UNKNOWN (неавторизованных)
+    all_users: list[UserModel] = await UserRepository(session).get_all_users_except_unknown()
+
+    # Фильтруем пользователей в зависимости от роли админа
+    filtered_users = []
+
+    for user in all_users:
+        # Для всех ролей: исключаем самого себя
+        if user.telegram_id == user_row.telegram_id:
+            continue
+
+        # Для ADMIN: скрываем ADMIN и SUPER_ADMIN
+        if user_row.role == UserRole.ADMIN:
+            if user.role not in [UserRole.ADMIN, UserRole.SUPER_ADMIN]:
+                filtered_users.append(user)
+        # Для SUPER_ADMIN: показываем всех (уже исключили себя выше)
+        elif user_row.role == UserRole.SUPER_ADMIN:
+            filtered_users.append(user)
+
+    # Форматируем пользователей для отображения
+    users_for_display = []
+    for user in filtered_users:
+        display_name = user.full_name or user.username or f"Пользователь {user.telegram_id}"
+        role_display = user.role.value
+        text = f"{display_name} -👔 {role_display}"
+        users_for_display.append((text, str(user.telegram_id)))
+
+    return {
+        "users": users_for_display,
+        "count_users": len(filtered_users)
     }

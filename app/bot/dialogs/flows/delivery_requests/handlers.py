@@ -3,14 +3,17 @@ import re
 from aiogram.types import CallbackQuery, Message
 from aiogram_dialog import DialogManager
 from aiogram_dialog.widgets.input import ManagedTextInput, MessageInput
-from aiogram_dialog.widgets.kbd import Button, Select, Radio, ManagedRadio
+from aiogram_dialog.widgets.kbd import Button, Select, ManagedRadio
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.bot.dialogs.flows.delivery_requests.states import DeliverySG
-from app.bot.dialogs.flows.delivery_requests.utils import send_order_notifications
+from app.bot.dialogs.flows.delivery_requests.utils import send_order_notifications, send_status_notification_to_all
+from app.bot.dialogs.utils.message_with_all_carts_and_items import send_carts_summary_message
+from app.infrastructure.database.enums import CartStatus
 from app.infrastructure.database.enums.order_statuses import OrderStatus
 from app.infrastructure.database.enums.payment_methods import PaymentMethod
 from app.infrastructure.database.models import UserModel
+from app.infrastructure.database.query.cart_queries import CartRepository
 from app.infrastructure.database.query.order_queries import OrderRepository
 from app.infrastructure.database.query.user_queries import UserRepository
 
@@ -224,10 +227,40 @@ async def on_status_selected(
 ):
     session: AsyncSession = manager.middleware_data["session"]
     order_id = manager.dialog_data.get("selected_order_id")
-    status = OrderStatus[item_id]
+    user: UserModel = manager.middleware_data["user_row"]
 
-    await OrderRepository(session).update_order_status(order_id, status=status)
+    new_status = OrderStatus[item_id]
 
-    await callback.answer(f"Статус обновлен на: {status.value}", show_alert=True)
+    # Получаем текущий статус заказа
+    order = await OrderRepository(session).get_order_with_carts(order_id)
+    old_status = order.status if order else None
 
+    # Обновляем статус заказа
+    await OrderRepository(session).update_order_status(order_id, status=new_status)
+
+    # 2. Отправляем всем сообщение о смене статуса
+    if order and old_status:
+        await send_status_notification_to_all(
+            bot=callback.bot,
+            session=session,
+            order=order,
+            old_status=old_status,
+            new_status=new_status,
+            deliverer=user,
+        )
+
+    # 3. При смене статуса на "Собран" отправляем все корзины выезднику
+    if new_status == OrderStatus.COLLECTED and order:
+        await send_carts_summary_message(
+            bot=callback.bot,
+            chat_id=callback.message.chat.id,
+            order=order,
+        )
+
+    # 4. При смене статуса на "Доставлен" обновляем статусы всех корзин
+    if new_status == OrderStatus.DELIVERED and order:
+        for cart in order.carts:
+            await CartRepository(session).update_cart_status(cart.id, CartStatus.DELIVERED)
+
+    await callback.answer(f"Статус обновлен на: {new_status.value}", show_alert=True)
     await manager.switch_to(DeliverySG.delivery_list)

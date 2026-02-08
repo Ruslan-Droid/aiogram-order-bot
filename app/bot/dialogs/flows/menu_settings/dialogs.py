@@ -1,9 +1,9 @@
 from aiogram_dialog import Dialog, Window
 from aiogram_dialog.widgets.kbd import (
-    Back, Cancel, Select, ScrollingGroup, Column, SwitchTo
+    Back, Cancel, Select, ScrollingGroup, Column, SwitchTo, Row
 )
 from aiogram_dialog.widgets.text import Const, Format
-from aiogram_dialog.widgets.input import MessageInput, TextInput
+from aiogram_dialog.widgets.input import TextInput
 
 from .states import MenuSettingsSG
 from .getters import (
@@ -14,7 +14,7 @@ from .getters import (
     get_selected_category, get_deleted_restaurants
 )
 from .handlers import (
-     validate_name, process_success_restaurant_name,
+    validate_name, process_success_restaurant_name,
     process_error_name, on_restaurant_selected_delete, on_restaurant_selected_rename,
     process_success_restaurant_rename, on_restaurant_selected_for_categories, on_restaurant_selected_recover,
     process_success_category_name, process_success_category_rename, on_category_selected_delete,
@@ -25,8 +25,8 @@ from .handlers import (
 )
 
 menu_settings_dialog = Dialog(
-    ## MAIN MENU✅
-    # ⚙️ Главное меню настроек ✅
+    ## MAIN MENU
+    # ⚙️ Главное меню настроек
     Window(
         Const("⚙️ <b>Меню настроек</b>\n\nВыберите раздел для настройки:"),
         Column(
@@ -49,8 +49,8 @@ menu_settings_dialog = Dialog(
         Cancel(Const("⬅️ Назад")),
         state=MenuSettingsSG.main,
     ),
-    ## 🏢 RESTAURANT BLOCK✅
-    # 🏢 Меню настройки заведений ✅
+    ## 🏢 RESTAURANT BLOCK
+    # 🏢 Меню настройки заведений
     Window(
         Const("🏢 <b>Настройка заведений</b>\n\nВыберите действие:"),
         Column(
@@ -67,10 +67,12 @@ menu_settings_dialog = Dialog(
                      id="rename_restaurant_btn",
                      state=MenuSettingsSG.rename_restaurant),
         ),
-        Back(Const("⬅️ Назад")),
+        Row(
+            Back(Const("⬅️ Назад")),
+            Cancel(Const("🏠 Главное меню")), ),
         state=MenuSettingsSG.restaurant_menu,
     ),
-    # 🏢 Добавление заведения ✅
+    # 🏢 ➕ Добавление заведения
     Window(
         Const("Введите название нового заведения:"),
         TextInput(
@@ -84,7 +86,7 @@ menu_settings_dialog = Dialog(
                  state=MenuSettingsSG.restaurant_menu),
         state=MenuSettingsSG.add_restaurant,
     ),
-    # 🏢 ❌ Удаление заведения ✅
+    # 🏢 ❌ Удаление заведения
     Window(
         Const("Выберите заведение которое хотите удалить:"),
         ScrollingGroup(
@@ -105,7 +107,7 @@ menu_settings_dialog = Dialog(
         getter=get_restaurants,
         state=MenuSettingsSG.delete_restaurant,
     ),
-    # 🏢 💾 Восстановить заведение ✅
+    # 🏢 💾 Восстановить заведение
     Window(
         Const("Выберите удаленное заведение которое хотите восстановить:"),
         ScrollingGroup(
@@ -126,7 +128,7 @@ menu_settings_dialog = Dialog(
         getter=get_deleted_restaurants,
         state=MenuSettingsSG.recover_restaurant,
     ),
-    # 🏢 ️✏️ Переименование заведения ✅
+    # 🏢 ️✏️ Переименование заведения
     Window(
         Const("Выберите заведение которое хотите переименование:"),
         ScrollingGroup(
@@ -147,6 +149,7 @@ menu_settings_dialog = Dialog(
         getter=get_restaurants,
         state=MenuSettingsSG.rename_restaurant,
     ),
+    # 🏢 Ввод названия заведения
     Window(
         Const("Напишите название для заведения:"),
         TextInput(
@@ -160,10 +163,11 @@ menu_settings_dialog = Dialog(
                  state=MenuSettingsSG.rename_restaurant),
         state=MenuSettingsSG.rename_restaurant_input,
     ),
-    ## CATEGORY BLOCK✅
-    # Выбор заведения для работы с категориями ✅
+    ## 📁 CATEGORY BLOCK
+    # 🏢 Выбор заведения для работы с категориями
     Window(
-        Format("🏢 <b>Выберите заведение для работы с категориями</b>\n\nНайдено заведений: {count}"),
+        Format("🏢 <b>Выберите заведение для работы с категориями</b>\n\n"
+               "Найдено заведений: {count}"),
         ScrollingGroup(
             Select(
                 Format("{item[0]}"),
@@ -176,13 +180,15 @@ menu_settings_dialog = Dialog(
             width=1,
             height=6,
         ),
-        SwitchTo(Const("⬅️ Назад"),
-                 id="back_btn",
-                 state=MenuSettingsSG.main),
+        Row(
+            SwitchTo(Const("⬅️ Назад"),
+                     id="back_btn",
+                     state=MenuSettingsSG.main),
+            Cancel(Const("🏠 Главное меню")), ),
         getter=get_restaurants,
         state=MenuSettingsSG.select_restaurant_for_category,
     ),
-    # Меню настройки категорий для выбранного заведения ✅
+    # 📁 Меню настройки категорий для выбранного заведения
     Window(
         Format("📁 <b>Настройка категорий</b>\n\n"
                "Заведение:🏢 <b>{restaurant_name}</b>\n\n"
@@ -198,13 +204,15 @@ menu_settings_dialog = Dialog(
                      id="rename_category_btn",
                      state=MenuSettingsSG.rename_category),
         ),
-        SwitchTo(Const("⬅️ Назад"),
-                 id="back_btn",
-                 state=MenuSettingsSG.select_restaurant_for_category),
+        Row(
+            SwitchTo(Const("⬅️ Назад"),
+                     id="back_btn",
+                     state=MenuSettingsSG.select_restaurant_for_category),
+            Cancel(Const("🏠 Главное меню")), ),
         getter=get_selected_restaurant,
         state=MenuSettingsSG.categories_menu,
     ),
-    # Добавление категории ✅
+    # 📁 ➕ Добавление категории
     Window(
         Const("Введите название новой категории:"),
         TextInput(
@@ -218,7 +226,7 @@ menu_settings_dialog = Dialog(
                  state=MenuSettingsSG.categories_menu),
         state=MenuSettingsSG.add_category,
     ),
-    # Удаление категории ✅
+    # 📁 ❌ Удаление категории
     Window(
         Const("Выберите категорию которою хотите удалить:"),
         ScrollingGroup(
@@ -239,7 +247,7 @@ menu_settings_dialog = Dialog(
         getter=get_categories_for_restaurant,
         state=MenuSettingsSG.delete_category,
     ),
-    # Переименование категории ✅
+    # 📁 ✏️ Переименование категории
     Window(
         Const("Выберите категорию которую хотите переименовать:"),
         ScrollingGroup(
@@ -260,6 +268,7 @@ menu_settings_dialog = Dialog(
         getter=get_categories_for_restaurant,
         state=MenuSettingsSG.rename_category,
     ),
+    # 📁 Ввод названия категории
     Window(
         Const("Напишите название для категории:"),
         TextInput(
@@ -273,8 +282,8 @@ menu_settings_dialog = Dialog(
                  state=MenuSettingsSG.rename_category),
         state=MenuSettingsSG.rename_category_input,
     ),
-    ## DISH BLOCK
-    # Выбор заведения для работы с блюдами ✅
+    ## 🍽️ DISH BLOCK
+    # 🏢 Выбор заведения для работы с блюдами
     Window(
         Format("🏢 <b>Выберите заведение для работы с блюдами</b>\n\n"
                "Найдено заведений: {count}"),
@@ -290,13 +299,15 @@ menu_settings_dialog = Dialog(
             width=1,
             height=6,
         ),
-        SwitchTo(Const("⬅️ Назад"),
-                 id="back_btn",
-                 state=MenuSettingsSG.main),
+        Row(
+            SwitchTo(Const("⬅️ Назад"),
+                     id="back_btn",
+                     state=MenuSettingsSG.main),
+            Cancel(Const("🏠 Главное меню")), ),
         getter=get_restaurants,
         state=MenuSettingsSG.select_restaurant_for_dish,
     ),
-    # Выбор категории для работы с блюдами ✅
+    # 📁 Выбор категории для работы с блюдами
     Window(
         Format(
             "📁 <b>Выберите категорию для работы с блюдами</b>\n\nЗаведение: <b>{restaurant_name}</b>\n\nНайдено категорий: {count}"),
@@ -312,13 +323,16 @@ menu_settings_dialog = Dialog(
             width=1,
             height=6,
         ),
-        SwitchTo(Const("⬅️ Назад"),
-                 id="back_btn",
-                 state=MenuSettingsSG.select_restaurant_for_dish),
+        Row(
+            SwitchTo(Const("⬅️ Назад"),
+                     id="back_btn",
+                     state=MenuSettingsSG.select_restaurant_for_dish),
+            Cancel(Const("🏠 Главное меню")),
+        ),
         getter=get_categories_for_restaurant,
         state=MenuSettingsSG.select_category_for_dish,
     ),
-    # Меню настройки блюд для выбранной категории ✅
+    # 🍽️ Меню настройки блюд для выбранной категории
     Window(
         Format("🍽️ <b>Настройка блюд</b>\n\n"
                "Категория: <b>{category_name}</b>\n\n"
@@ -339,13 +353,16 @@ menu_settings_dialog = Dialog(
                         id="add_list_dish_btn",
                         state=MenuSettingsSG.add_multiple_dishes),
                ),
-        SwitchTo(Const("⬅️ Назад"),
-                 id="back_btn",
-                 state=MenuSettingsSG.select_category_for_dish),
+        Row(
+            SwitchTo(Const("⬅️ Назад"),
+                     id="back_btn",
+                     state=MenuSettingsSG.select_category_for_dish),
+            Cancel(Const("🏠 Главное меню")),
+        ),
         getter=get_selected_category,
         state=MenuSettingsSG.dishes_menu,
     ),
-    # Добавление блюдо ✅
+    # 🍽️➕ Добавление блюдо
     Window(
         Const("Введите название нового блюда и его цену.\n\n"
               "Пример: <b>Куриное филе 100</b>"),
@@ -360,7 +377,7 @@ menu_settings_dialog = Dialog(
                  state=MenuSettingsSG.dishes_menu),
         state=MenuSettingsSG.add_dish,
     ),
-    # Удаление блюда ✅
+    # 🍽️🗑️ Удаление блюда
     Window(
         Const("Выберите блюдо которое хотите удалить:"),
         ScrollingGroup(
@@ -381,7 +398,7 @@ menu_settings_dialog = Dialog(
         getter=get_dishes_for_category,
         state=MenuSettingsSG.delete_dish,
     ),
-    # Переименование блюда ✅
+    # 🍽️ ✏️ Переименование блюда
     Window(
         Const("Выберите блюдо которое хотите переименовать:"),
         ScrollingGroup(
@@ -402,6 +419,7 @@ menu_settings_dialog = Dialog(
         getter=get_dishes_for_category,
         state=MenuSettingsSG.rename_dish,
     ),
+    # 🍽️ Ввод названия блюда
     Window(
         Const("Напишите название для блюда:"),
         TextInput(
@@ -416,7 +434,7 @@ menu_settings_dialog = Dialog(
         state=MenuSettingsSG.rename_dish_input,
     ),
 
-    # Изменение цены блюда
+    # 🍽️💰 Изменение цены блюда
     Window(
         Const("Выберите блюдо у которого хотите изменить цену:"),
         ScrollingGroup(
@@ -437,6 +455,7 @@ menu_settings_dialog = Dialog(
         getter=get_dishes_for_category,
         state=MenuSettingsSG.change_dish_price,
     ),
+    # 🍽️ Ввод цены блюда
     Window(
         Const("Напишите цену для блюда:"),
         TextInput(
@@ -450,10 +469,9 @@ menu_settings_dialog = Dialog(
                  state=MenuSettingsSG.change_dish_price),
         state=MenuSettingsSG.change_dish_price_input,
     ),
-
-    # Добавление нескольких блюд
+    # 🍽️➕➕ Добавление нескольких блюд
     Window(
-        Const("Напишите блюда и цену через запятую в таком формате:\n"
+        Const("Напишите блюда и цену через запятую в таком формате:\n\n"
               "Куриное филе:200, Картошка фри:500.20"),
         TextInput(
             id="add_dish_list_input",

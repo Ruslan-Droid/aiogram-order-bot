@@ -3,10 +3,11 @@ from aiogram import Router
 from aiogram.types import Message, CallbackQuery
 from aiogram_dialog import DialogManager
 from aiogram_dialog.widgets.input import ManagedTextInput
-from aiogram_dialog.widgets.kbd import Button, Multiselect
+from aiogram_dialog.widgets.kbd import Button, Multiselect, Select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.enums.user_roles import UserRole
+from app.infrastructure.database.models import UserModel
 from app.infrastructure.database.query.user_queries import UserRepository
 from .states import AdminPanelSG
 
@@ -74,12 +75,17 @@ async def process_user_id(
         text: str
 ) -> None:
     session: AsyncSession = dialog_manager.middleware_data["session"]
+    user_row: UserModel = dialog_manager.middleware_data["user_row"]
     user_telegram_id = int(text)
     # Проверяем существование пользователя
-    user = await UserRepository(session).get_user_by_telegram_id(user_telegram_id)
+    user: UserModel = await UserRepository(session).get_user_by_telegram_id(user_telegram_id)
 
     if not user:
         await message.answer("Пользователь с таким ID не найден. Попробуйте снова:")
+        return
+
+    if user_row.role == UserRole.ADMIN and user.role in [UserRole.SUPER_ADMIN, UserRole.ADMIN]:
+        await message.answer("У вас не достаточно прав чтобы изменить роль этого пользователя")
         return
 
     dialog_manager.dialog_data["user_id_to_change"] = user_telegram_id
@@ -125,3 +131,16 @@ async def save_role_changes(
 
     await callback.answer(f"Роль успешно изменена на {selected_role}")
     await dialog_manager.switch_to(AdminPanelSG.pending_users)
+
+
+async def on_user_selected(
+        callback: CallbackQuery,
+        widget: Select,
+        dialog_manager: DialogManager,
+        item_id: str
+) -> None:
+    # Сохраняем выбранный user_id для последующего использования
+    dialog_manager.dialog_data["user_id_to_change"] = item_id
+
+    # Переходим к выбору роли
+    await dialog_manager.switch_to(AdminPanelSG.change_role_select)

@@ -3,7 +3,7 @@ from aiogram_dialog.widgets.kbd import (
     Row, Column, SwitchTo, Button,
     Back, Select, ScrollingGroup, Cancel, Radio
 )
-from aiogram_dialog.widgets.text import Const, Format, Multi
+from aiogram_dialog.widgets.text import Const, Format
 from aiogram_dialog.widgets.input import TextInput, MessageInput
 
 from app.bot.dialogs.flows.delivery_requests.getters import get_restaurants, get_today_orders, \
@@ -79,7 +79,6 @@ delivery_dialog = Dialog(
         getter=getter_create_enter_contact,
         state=DeliverySG.create_enter_contact
     ),
-
     # ➕ Создать заявку -> Окно выбора ресторана для создания заявки -> 📞 Окно ввода контактов -> окно выбора банка
     Window(
         Const("Выберите банк для оплаты:"),
@@ -109,7 +108,6 @@ delivery_dialog = Dialog(
         getter=getter_select_bank,
         state=DeliverySG.create_select_bank
     ),
-
     # Окно подтверждения
     Window(
         Format("📋 Подтверждение заявки:\n"
@@ -135,7 +133,6 @@ delivery_dialog = Dialog(
         getter=getter_confirm_create,
         state=DeliverySG.create_confirm
     ),
-
     # 📝 Окно добавления комментария
     Window(
         Const("✍️ <b>Введите комментарий к заказу:</b>"),
@@ -204,7 +201,10 @@ delivery_dialog = Dialog(
             width=1,
             height=5,
         ),
-        SwitchTo(Const("⬅️ Назад"), state=DeliverySG.delivery_list, id="back_button"),
+        SwitchTo(
+            Const("⬅️ Назад"),
+            state=DeliverySG.delivery_list,
+            id="back_button"),
         state=DeliverySG.delivery_list_choose_status,
         getter=get_order_statuses,
     ),

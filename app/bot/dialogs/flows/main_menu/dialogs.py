@@ -2,7 +2,6 @@ from aiogram_dialog import Dialog, Window
 from aiogram_dialog.widgets.kbd import Column, Group, Start
 from aiogram_dialog.widgets.text import Const
 
-from app.bot.dialogs.flows.main_menu.getters import get_user_role
 from app.bot.dialogs.flows.main_menu.states import MainMenuSG
 from app.bot.dialogs.flows.menu_view.states import MenuViewSG
 from app.bot.dialogs.flows.delivery_requests.states import DeliverySG
@@ -18,18 +17,19 @@ main_menu_dialog = Dialog(
         Const("🏠 Главное меню:"),
         Group(
             Column(
-                # 📋 Меню (Все пользователи)
+                # 📋 Меню
                 Start(
                     Const("📋 Меню"),
                     id="view_menu",
                     state=MenuViewSG.restaurants
                 ),
+                # 🛒 Корзина
                 Start(
                     Const("🛒 Корзина"),
                     id="view_cart",
                     state=CartSG.main
                 ),
-                # 🚚 Заявки на доставку (Выездник, Админ)
+                # 🚚 Заявки на доставку
                 Start(
                     Const("🚚 Заявки на доставку"),
                     id="delivery_requests",
@@ -38,7 +38,7 @@ main_menu_dialog = Dialog(
                         [UserRole.DELIVERY, UserRole.ADMIN, UserRole.SUPER_ADMIN]
                     )
                 ),
-                # ⚙️ Настроить права пользователей (Админ)
+                # ⚙️ Настроить права пользователей
                 Start(
                     Const("⚙️ Настроить права пользователей"),
                     id="manage_roles",
@@ -47,7 +47,7 @@ main_menu_dialog = Dialog(
                         [UserRole.ADMIN, UserRole.SUPER_ADMIN]
                     )
                 ),
-                # 🍽️ Настроить меню (Админ)
+                # 🍽️ Настроить меню
                 Start(
                     Const("🍽️ Настроить меню"),
                     id="menu_settings",
@@ -59,6 +59,5 @@ main_menu_dialog = Dialog(
             )
         ),
         state=MainMenuSG.menu,
-        getter=get_user_role,
     )
 )

@@ -6,7 +6,7 @@ from aiogram.enums import ParseMode
 from aiogram.exceptions import TelegramForbiddenError, TelegramRetryAfter
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.infrastructure.database.models import UserModel
+from app.infrastructure.database.models import UserModel, DeliveryOrderModel
 from app.infrastructure.database.query.user_queries import UserRepository
 
 logger = logging.getLogger(__name__)
@@ -73,3 +73,52 @@ async def send_order_notifications(
 
     except Exception as e:
         logger.error("Error in send_order_notifications: %s", str(e))
+
+
+async def send_status_notification_to_all(
+        bot: Bot,
+        session: AsyncSession,
+        order: DeliveryOrderModel,
+        old_status: OrderStatus,
+        new_status: OrderStatus,
+        deliverer: UserModel,
+        delay_seconds: float = 0.06
+) -> None:
+    """Отправка уведомления всем пользователям о смене статуса заказа"""
+    try:
+        # Получаем всех активных пользователей
+        users = await UserRepository(session).get_active_users_except(
+            exclude_telegram_id=deliverer.telegram_id
+        )
+        message_text = (
+            f"📢 <b>Статус заказа #{order.id} изменен</b>\n"
+            f"📍 Ресторан: {order.restaurant.name}\n"
+            f"🔄 {old_status.value} → {new_status.value}\n"
+            f"📅 Дата: {order.created_at.strftime('%d.%m.%Y %H:%M')}\n"
+        )
+
+        success_count = 0
+        error_count = 0
+
+        for user in users:
+            try:
+                await bot.send_message(
+                    chat_id=user.telegram_id,
+                    text=message_text,
+                )
+                success_count += 1
+                await asyncio.sleep(delay_seconds)
+            except TelegramForbiddenError:
+                logger.warning(f"User {user.telegram_id} blocked the bot")
+                error_count += 1
+            except TelegramRetryAfter as e:
+                logger.warning(f"Rate limit exceeded. Waiting {e.retry_after} seconds")
+                await asyncio.sleep(e.retry_after)
+            except Exception as e:
+                logger.error(f"Failed to send status notification to {user.telegram_id}: {str(e)}")
+                error_count += 1
+
+        logger.info(f"Status notifications sent: {success_count} successful, {error_count} failed")
+
+    except Exception as e:
+        logger.error(f"Error in send_status_notification_to_all: {str(e)}")

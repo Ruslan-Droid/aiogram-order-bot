@@ -1,7 +1,7 @@
 from aiogram_dialog import Dialog, Window
 from aiogram_dialog.widgets.text import Const, Format
 from aiogram_dialog.widgets.kbd import (
-    Back, Select, ScrollingGroup, Cancel, SwitchTo, Start, Button
+    Back, Select, ScrollingGroup, Cancel, SwitchTo, Button
 )
 from aiogram_dialog.widgets.input import MessageInput
 
@@ -14,7 +14,6 @@ from app.bot.dialogs.flows.cart.handlers import (
     selected_order_from_history, send_all_carts_message
 )
 from app.bot.dialogs.flows.menu_view.handlers import on_add_more_dishes_click
-from app.bot.dialogs.flows.menu_view.states import MenuViewSG
 from app.bot.dialogs.utils.roles_utils import role_required
 from app.infrastructure.database.enums import UserRole
 
