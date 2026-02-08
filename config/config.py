@@ -43,10 +43,6 @@ class RedisConfig(BaseModel):
     redis_url: str | None = Field(None, description="Redis server URL.")
 
 
-class NatsConfig(BaseModel):
-    servers: str | list[str] = Field(..., description="NATS servers.")
-
-
 class AdminConfig(BaseModel):
     admin_id: int = Field(..., description="Admin telegram id.")
     admin_chat_id: int = Field(..., description="Admin telegram chatID.")
@@ -58,7 +54,6 @@ class AppConfig(BaseModel):
     bot: BotConfig
     postgres: PostgresConfig
     redis: RedisConfig
-    nats: NatsConfig
     admin: AdminConfig
 
 
@@ -108,9 +103,6 @@ def get_config() -> AppConfig:
         password=_settings.redis_password,
         redis_url=f"redis://{_settings.redis_username}:{_settings.redis_password}@{_settings.redis_host}:{_settings.redis_port}/{_settings.redis_database}"
     )
-    nats = NatsConfig(
-        servers=_settings.nats.servers,
-    )
     admin = AdminConfig(
         admin_id=_settings.admin_id,
         admin_chat_id=_settings.admin_chat,
@@ -122,6 +114,5 @@ def get_config() -> AppConfig:
         bot=bot,
         postgres=postgres,
         redis=redis,
-        nats=nats,
         admin=admin,
     )

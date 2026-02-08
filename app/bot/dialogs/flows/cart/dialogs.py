@@ -13,6 +13,7 @@ from app.bot.dialogs.flows.cart.handlers import (
     on_order_selected, on_comment_entered, on_cart_item_selected, on_update_amount, on_order_for_delivery_selected,
     selected_order_from_history, send_all_carts_message
 )
+from app.bot.dialogs.flows.menu_view.handlers import on_add_more_dishes_click
 from app.bot.dialogs.flows.menu_view.states import MenuViewSG
 from app.bot.dialogs.utils.roles_utils import role_required
 from app.infrastructure.database.enums import UserRole
@@ -137,10 +138,11 @@ cart_dialog = Dialog(
             width=1,
             height=8,
         ),
-        Start(
+        Button(
             Const("➕ Добавить ещё блюда"),
             id="add_more_dishes",
-            state=MenuViewSG.restaurants,
+            on_click=on_add_more_dishes_click,
+            when="is_attachable",
         ),
         SwitchTo(
             Const("⬅️ Назад"),

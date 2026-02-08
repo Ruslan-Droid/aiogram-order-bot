@@ -65,11 +65,18 @@ async def on_add_to_cart_clicked(
         await callback.answer("Выберите что нибудь для добавления в корзину!")
         return
 
-    # Создаем или получаем корзину
-    cart = await cart_repo.get_or_create_active_cart(
-        user_id=user.id,
-        restaurant_id=restaurant_id
-    )
+    try:
+        cart_id = dialog_manager.start_data.get("cart_id", None)
+    except AttributeError:
+        cart_id = None
+
+    if not cart_id:
+        # Создаем или получаем корзину
+        cart = await cart_repo.get_or_create_active_cart(
+            user_id=user.id,
+            restaurant_id=restaurant_id
+        )
+        cart_id = cart.id
 
     added_items_count = 0
     for dish_id, amount in counters_data.items():
@@ -79,14 +86,14 @@ async def on_add_to_cart_clicked(
 
             if dish:
                 await CartItemRepository(session).add_or_update_cart_item(
-                    cart_id=cart.id,
+                    cart_id=cart_id,
                     dish_id=dish_id,
                     amount=int(amount),
                     price_at_time=dish.price
                 )
                 added_items_count += amount
 
-    await cart_repo.update_cart_total_price(cart.id)
+    await cart_repo.update_cart_total_price(cart_id)
     await callback.answer(f"Добавлено {added_items_count} позиций в корзину!", show_alert=True)
 
 
@@ -97,3 +104,12 @@ async def go_to_cart_clicked(
 ):
     await dialog_manager.done()
     await dialog_manager.start(CartSG.main)
+
+
+async def on_add_more_dishes_click(
+        callback: CallbackQuery,
+        widget: Button,
+        dialog_manager: DialogManager
+):
+    cart_id = dialog_manager.dialog_data.get("cart_id")
+    await dialog_manager.start(MenuViewSG.restaurants, data={"cart_id": cart_id})

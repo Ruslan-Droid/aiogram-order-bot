@@ -1,8 +1,7 @@
 import logging
 
-from sqlalchemy import select, update, delete
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
 
 from app.infrastructure.database.models.category import CategoryModel
 
@@ -47,23 +46,6 @@ class CategoryRepository:
             logger.error("Error getting categories for restaurant %s: %s", restaurant_id, str(e))
             raise
 
-    async def get_category_with_dishes(self, category_id: int) -> CategoryModel | None:
-        try:
-            stmt = (
-                select(CategoryModel)
-                .filter(CategoryModel.id == category_id)
-                .options(selectinload(CategoryModel.dishes))
-            )
-            category = await self.session.scalar(stmt)
-
-            if category:
-                logger.info("Fetched category with dishes: %s", category_id)
-            return category
-
-        except Exception as e:
-            logger.error("Error getting category with dishes for id %s: %s", category_id, str(e))
-            raise
-
     async def create_category(
             self,
             name: str,
@@ -86,33 +68,6 @@ class CategoryRepository:
         except Exception as e:
             await self.session.rollback()
             logger.error("Error creating category %s: %s", name, str(e))
-            raise
-
-    async def delete_category(self, category_id: int) -> None:
-        try:
-            stmt = delete(CategoryModel).filter(CategoryModel.id == category_id)
-            await self.session.execute(stmt)
-            await self.session.commit()
-            logger.info("Deleted category: %s", category_id)
-        except Exception as e:
-            await self.session.rollback()
-            logger.error("Error deleting category %s: %s", category_id, str(e))
-            raise
-
-    async def update_category_display_order(self, category_id: int, display_order: int) -> None:
-        try:
-            stmt = (
-                update(CategoryModel)
-                .where(CategoryModel.id == category_id)
-                .values(display_order=display_order)
-            )
-            await self.session.execute(stmt)
-            await self.session.commit()
-            logger.info("Updated category display order: id=%s, order=%s", category_id, display_order)
-
-        except Exception as e:
-            await self.session.rollback()
-            logger.error("Error updating category display order for id %s: %s", category_id, str(e))
             raise
 
     async def update_category_status(self, category_id: int, is_active: bool) -> None:

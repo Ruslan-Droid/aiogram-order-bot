@@ -29,20 +29,6 @@ class UserRepository:
             logger.error("Error getting user by telegram id %s: %s", telegram_id, str(e))
             raise
 
-    async def get_users_by_telegram_ids(
-            self,
-            telegram_ids: list[int]
-    ) -> dict[int, UserModel]:
-        try:
-            stmt = select(UserModel).filter(
-                UserModel.telegram_id.in_(telegram_ids)
-            )
-            users = await self.session.scalars(stmt)
-            return {user.telegram_id: user for user in users}
-        except Exception as e:
-            logger.error("Error getting users by ids: %s", str(e))
-            return {}
-
     async def create_or_update_user(
             self,
             telegram_id: int,

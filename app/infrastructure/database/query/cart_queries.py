@@ -1,11 +1,9 @@
 import logging
-from enum import Enum
 
-from sqlalchemy import select, update, delete, func, and_, or_
+from sqlalchemy import select, update, delete, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.infrastructure.database.models import DishModel
 from app.infrastructure.database.models.cart import CartModel, CartItemModel, CartStatus
 from app.infrastructure.database.query.order_queries import OrderRepository
 
@@ -61,34 +59,6 @@ class CartRepository:
 
         except Exception as e:
             logger.error("Error getting current cart for user %s: %s", user_id, str(e))
-            raise
-
-    async def get_active_cart_by_restaurant(
-            self, user_id: int, restaurant_id: int
-    ) -> CartModel | None:
-        """Получить активную корзину пользователя для конкретного ресторана"""
-        try:
-            stmt = (
-                select(CartModel)
-                .filter(
-                    CartModel.user_id == user_id,
-                    CartModel.restaurant_id == restaurant_id,
-                    CartModel.status == CartStatus.ACTIVE,
-                    CartModel.is_current == True
-                )
-                .options(
-                    selectinload(CartModel.item_associations)
-                    .selectinload(CartItemModel.dish),
-                    selectinload(CartModel.restaurant)
-                )
-            )
-            cart = await self.session.scalar(stmt)
-            return cart
-        except Exception as e:
-            logger.error(
-                "Error getting active cart for user %s, restaurant %s: %s",
-                user_id, restaurant_id, str(e)
-            )
             raise
 
     async def create_cart(
@@ -167,73 +137,6 @@ class CartRepository:
             )
             raise
 
-    async def add_item_to_cart(
-            self,
-            cart_id: int,
-            dish_id: int,
-            amount: int,
-            price_at_time: float
-    ) -> CartItemModel:
-        """Добавить товар в корзину"""
-        try:
-            # Проверяем, есть ли уже этот товар в корзине
-            stmt = select(CartItemModel).filter(
-                CartItemModel.cart_id == cart_id,
-                CartItemModel.dish_id == dish_id
-            )
-            existing_item = await self.session.scalar(stmt)
-
-            if existing_item:
-                # Обновляем количество
-                existing_item.amount += amount
-                item = existing_item
-                logger.info(
-                    "Updated item in cart: cart=%s, dish=%s, new_amount=%s",
-                    cart_id, dish_id, existing_item.amount
-                )
-            else:
-                # Добавляем новый товар
-                cart_item = CartItemModel(
-                    cart_id=cart_id,
-                    dish_id=dish_id,
-                    amount=amount,
-                    price_at_time=price_at_time
-                )
-                self.session.add(cart_item)
-                item = cart_item
-                logger.info(
-                    "Added item to cart: cart=%s, dish=%s, amount=%s",
-                    cart_id, dish_id, amount
-                )
-
-            # Обновляем общую сумму корзины
-            await self.update_cart_total_price(cart_id)
-            await self.session.commit()
-
-            return item
-
-        except Exception as e:
-            await self.session.rollback()
-            logger.error("Error adding item to cart %s: %s", cart_id, str(e))
-            raise
-
-    async def remove_item_from_cart(self, cart_id: int, dish_id: int) -> None:
-        """Удалить товар из корзины"""
-        try:
-            stmt = delete(CartItemModel).filter(
-                CartItemModel.cart_id == cart_id,
-                CartItemModel.dish_id == dish_id
-            )
-            await self.session.execute(stmt)
-            await self.update_cart_total_price(cart_id)
-            await self.session.commit()
-            logger.info("Removed item from cart: cart=%s, dish=%s", cart_id, dish_id)
-
-        except Exception as e:
-            await self.session.rollback()
-            logger.error("Error removing item from cart %s: %s", cart_id, str(e))
-            raise
-
     async def update_cart_total_price(self, cart_id: int) -> None:
         """Обновить общую сумму корзины"""
         try:
@@ -258,28 +161,6 @@ class CartRepository:
 
         except Exception as e:
             logger.error("Error updating cart total for cart %s: %s", cart_id, str(e))
-            raise
-
-    async def clear_cart(self, cart_id: int) -> None:
-        """Очистить корзину"""
-        try:
-            # Удаляем все товары из корзины
-            stmt = delete(CartItemModel).filter(CartItemModel.cart_id == cart_id)
-            await self.session.execute(stmt)
-
-            # Сбрасываем общую сумму
-            update_stmt = (
-                update(CartModel)
-                .where(CartModel.id == cart_id)
-                .values(total_amount=0.0)
-            )
-            await self.session.execute(update_stmt)
-            await self.session.commit()
-            logger.info("Cleared cart: %s", cart_id)
-
-        except Exception as e:
-            await self.session.rollback()
-            logger.error("Error clearing cart %s: %s", cart_id, str(e))
             raise
 
     async def update_cart_notes(self, cart_id: int, notes: str) -> None:
@@ -363,7 +244,7 @@ class CartRepository:
                 select(CartModel)
                 .filter(
                     CartModel.delivery_order_id == order_id,
-                    CartModel.status.in_([CartStatus.ATTACHED, CartStatus.ORDERED])
+                    CartModel.status.in_([CartStatus.ORDERED])
                 )
                 .options(
                     selectinload(CartModel.item_associations)
@@ -425,96 +306,6 @@ class CartRepository:
             )
             raise
 
-    async def get_order_carts_summary(
-            self,
-            order_id: int
-    ) -> dict:
-        """Получить сводную информацию по всем корзинам заказа"""
-        try:
-            carts = await self.get_carts_by_order(order_id)
-
-            summary = {
-                "total_amount": 0.0,
-                "total_items": 0,
-                "carts_count": len(carts),
-                "carts": [],
-                "users": []
-            }
-
-            for cart in carts:
-                user_info = {
-                    "user_id": cart.user_id,
-                    "username": cart.user.username or cart.user.full_name,
-                    "telegram_id": cart.user.telegram_id,
-                    "cart_total": cart.total_amount,
-                    "items_count": cart.items_count,
-                    "notes": cart.notes
-                }
-
-                summary["total_amount"] += cart.total_amount
-                summary["total_items"] += cart.items_count
-                summary["users"].append(user_info)
-
-                # Детали по позициям
-                cart_details = []
-                for item in cart.item_associations:
-                    cart_details.append({
-                        "dish_name": item.dish.name,
-                        "amount": item.amount,
-                        "price": item.price_at_time,
-                        "total": item.amount * item.price_at_time
-                    })
-
-                summary["carts"].append({
-                    "user": user_info,
-                    "items": cart_details,
-                    "cart_id": cart.id,
-                    "status": cart.status.value
-                })
-
-            logger.info(
-                "Created summary for order %s: %s carts, total %s items, amount %s",
-                order_id, len(carts), summary["total_items"], summary["total_amount"]
-            )
-            return summary
-
-        except Exception as e:
-            logger.error(
-                "Error creating summary for order %s: %s",
-                order_id, str(e)
-            )
-            raise
-
-    async def deactivate_old_carts(self, days: int = 30) -> int:
-        """Деактивировать старые корзины (архивация)"""
-        try:
-            from datetime import datetime, timedelta
-            from sqlalchemy import cast, Date
-
-            cutoff_date = datetime.now() - timedelta(days=days)
-
-            stmt = (
-                update(CartModel)
-                .where(
-                    CartModel.status == CartStatus.ACTIVE,
-                    CartModel.created_at < cutoff_date,
-                    CartModel.is_current == False
-                )
-                .values(status=CartStatus.CANCELLED)
-            )
-
-            result = await self.session.execute(stmt)
-            await self.session.commit()
-
-            count = result.rowcount
-            logger.info("Deactivated %s old carts older than %s days", count, days)
-            return count
-
-        except Exception as e:
-            await self.session.rollback()
-            logger.error("Error deactivating old carts: %s", str(e))
-            raise
-
 
 class CartItemRepository:
     def __init__(self, session: AsyncSession):
@@ -568,63 +359,6 @@ class CartItemRepository:
             await self.session.rollback()
             raise
 
-    async def increment_item(self, cart_id: int, dish_id: int) -> CartItemModel:
-        """Увеличить количество товара на 1"""
-        item = await self.get_cart_item(cart_id, dish_id)
-
-        if item:
-            item.amount += 1
-            await self.session.commit()
-            return item
-        else:
-            return await self.add_or_update_item(cart_id, dish_id, 1)
-
-    async def decrement_item(self, cart_id: int, dish_id: int) -> CartItemModel | None:
-        """Уменьшить количество товара на 1"""
-        item = await self.get_cart_item(cart_id, dish_id)
-
-        if item:
-            if item.amount > 1:
-                item.amount -= 1
-                await self.session.commit()
-                return item
-            else:
-                # Удаляем товар если количество становится 0
-                await self.remove_item_from_cart(cart_id, dish_id)
-                return None
-        return None
-
-    async def update_item_quantity(
-            self,
-            cart_id: int,
-            dish_id: int,
-            quantity: int
-    ) -> CartItemModel | None:
-        """Обновить количество товара"""
-        if quantity <= 0:
-            # Удаляем товар
-            await self.remove_item_from_cart(cart_id, dish_id)
-            return None
-        else:
-            return await self.add_or_update_item(cart_id, dish_id, quantity)
-
-    async def remove_item_from_cart(self, cart_id: int, dish_id: int) -> None:
-        """Удалить товар из корзины"""
-        delete_stmt = delete(CartItemModel).where(
-            CartItemModel.cart_id == cart_id,
-            CartItemModel.dish_id == dish_id
-        )
-        await self.session.execute(delete_stmt)
-        await self.session.commit()
-
-    async def clear_cart(self, cart_id: int) -> None:
-        """Удалить все товары из корзины"""
-        delete_stmt = delete(CartItemModel).where(
-            CartItemModel.cart_id == cart_id
-        )
-        await self.session.execute(delete_stmt)
-        await self.session.commit()
-
     async def add_or_update_cart_item(
             self,
             cart_id: int,
@@ -669,49 +403,3 @@ class CartItemRepository:
         )
         await self.session.execute(stmt)
         await self.session.commit()
-
-    async def get_cart_items_with_dishes(self, cart_id: int) -> list[dict]:
-        """Получить товары корзины с информацией о блюдах"""
-        stmt = (
-            select(CartItemModel, DishModel)
-            .join(DishModel, CartItemModel.dish_id == DishModel.id)
-            .where(CartItemModel.cart_id == cart_id)
-            .order_by(DishModel.name)
-        )
-        result = await self.session.execute(stmt)
-
-        items = []
-        for cart_item, dish in result:
-            items.append({
-                "cart_item": cart_item,
-                "dish": dish,
-                "total": cart_item.amount * cart_item.price_at_time
-            })
-
-        return items
-
-    async def copy_cart_items_to_order(
-            self,
-            cart_id: int,
-            order_id: int
-    ) -> list:
-        """Скопировать товары из корзины в заказ (при создании OrderItem)"""
-        try:
-            # Получаем все товары корзины
-            cart_items = await self.get_items_by_cart_id(cart_id)
-
-            # Здесь должна быть логика создания OrderItemModel
-            # (это зависит от вашей реализации OrderItemRepository)
-
-            logger.info(
-                "Copied %s items from cart %s to order %s",
-                len(cart_items), cart_id, order_id
-            )
-            return cart_items
-
-        except Exception as e:
-            logger.error(
-                "Error copying items from cart %s to order %s: %s",
-                cart_id, order_id, str(e)
-            )
-            raise

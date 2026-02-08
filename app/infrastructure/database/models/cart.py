@@ -48,11 +48,6 @@ class CartModel(Base):
         """Общее количество позиций в корзине"""
         return sum(item.amount for item in self.item_associations)
 
-    @property
-    def is_attachable(self) -> bool:
-        """Можно ли привязать к заказу"""
-        return self.status == CartStatus.ACTIVE and self.items_count > 0
-
 
 class CartItemModel(Base):
     __tablename__ = "cart_items"

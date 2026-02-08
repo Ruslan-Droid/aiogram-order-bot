@@ -109,6 +109,7 @@ async def get_cart_items_for_edit(
         "restaurant_name": cart.restaurant.name if cart.restaurant else "",
         "total_price": cart.total_price or 0.0,
         "cart_status": cart.status.value,
+        "is_attachable": True if cart.status != CartStatus.DELIVERED else False,
     }
 
 

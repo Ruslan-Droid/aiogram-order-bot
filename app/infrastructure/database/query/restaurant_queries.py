@@ -1,6 +1,6 @@
 import logging
 
-from sqlalchemy import select, update, delete
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.models.restaurant import RestaurantModel
@@ -42,6 +42,7 @@ class RestaurantRepository:
         except Exception as e:
             logger.error("Error getting all active restaurants: %s", str(e))
             raise
+
     async def get_all_disabled_restaurants(self) -> list[RestaurantModel]:
         try:
             stmt = (
@@ -69,21 +70,6 @@ class RestaurantRepository:
         except Exception as e:
             await self.session.rollback()
             logger.error("Error creating restaurant %s: %s", name, str(e))
-            raise
-
-    async def delete_restaurant(self, restaurant_id: int) -> None:
-        try:
-            stmt = (
-                delete(RestaurantModel)
-                .where(RestaurantModel.id == restaurant_id)
-            )
-            await self.session.execute(stmt)
-            await self.session.commit()
-            logger.info("Deleted restaurant: %s", restaurant_id)
-
-        except Exception as e:
-            await self.session.rollback()
-            logger.error("Error deleting restaurant %s: %s", restaurant_id, str(e))
             raise
 
     async def update_restaurant_status(self, restaurant_id: int, is_active: bool) -> None:
@@ -116,22 +102,4 @@ class RestaurantRepository:
         except Exception as e:
             await self.session.rollback()
             logger.error("Error updating restaurant name for id %s: %s", restaurant_id, str(e))
-            raise
-
-    async def get_restaurant_with_categories(self, restaurant_id: int) -> RestaurantModel | None:
-        try:
-            from sqlalchemy.orm import selectinload
-            stmt = (
-                select(RestaurantModel)
-                .filter(RestaurantModel.id == restaurant_id)
-                .options(selectinload(RestaurantModel.categories))
-            )
-            restaurant = await self.session.scalar(stmt)
-
-            if restaurant:
-                logger.info("Fetched restaurant with categories: %s", restaurant_id)
-            return restaurant
-
-        except Exception as e:
-            logger.error("Error getting restaurant with categories for id %s: %s", restaurant_id, str(e))
             raise

@@ -9,6 +9,7 @@ if TYPE_CHECKING:
     from app.infrastructure.database.models.restaurant import RestaurantModel
     from app.infrastructure.database.models.dish import DishModel
 
+
 class CategoryModel(Base):
     __tablename__ = "categories"
 
@@ -29,7 +30,6 @@ class CategoryModel(Base):
     __table_args__ = (
         Index("ix_categories_restaurant_order", "restaurant_id", "display_order"),
     )
-
 
     def __repr__(self) -> str:
         return f"Category(id={self.id}, name='{self.name}')"

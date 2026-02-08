@@ -1,6 +1,6 @@
 import logging
 
-from sqlalchemy import select, update, delete
+from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.infrastructure.database.models.dish import DishModel
@@ -44,25 +44,6 @@ class DishRepository:
             logger.error("Error getting dishes for category %s: %s", category_id, str(e))
             raise
 
-    async def get_dishes_by_ids(self, dish_ids: list[int]) -> list[DishModel]:
-        try:
-            if not dish_ids:
-                return []
-
-            stmt = (
-                select(DishModel)
-                .filter(DishModel.id.in_(dish_ids))
-                .order_by(DishModel.name)
-            )
-            result = await self.session.scalars(stmt)
-            dishes = list(result.all())
-            logger.info("Fetched dishes by ids, count: %s", len(dishes))
-            return dishes
-
-        except Exception as e:
-            logger.error("Error getting dishes by ids: %s", str(e))
-            raise
-
     async def create_dish(
             self,
             name: str,
@@ -87,17 +68,6 @@ class DishRepository:
             logger.error("Error creating dish %s: %s", name, str(e))
             raise
 
-    async def delete_dish(self, dish_id: int) -> None:
-        try:
-            stmt = delete(DishModel).filter(DishModel.id == dish_id)
-            await self.session.execute(stmt)
-            await self.session.commit()
-            logger.info("Deleted dish %s", dish_id)
-        except Exception as e:
-            await self.session.rollback()
-            logger.error("Error deleting dish %s: %s", dish_id, str(e))
-            raise
-
     async def update_dish_price(self, dish_id: int, price: float) -> None:
         try:
             stmt = (
@@ -112,22 +82,6 @@ class DishRepository:
         except Exception as e:
             await self.session.rollback()
             logger.error("Error updating dish price for id %s: %s", dish_id, str(e))
-            raise
-
-    async def update_dish_order(self, dish_id: int, display_order: int) -> None:
-        try:
-            stmt = (
-                update(DishModel)
-                .where(DishModel.id == dish_id)
-                .values(display_order=display_order)
-            )
-            await self.session.execute(stmt)
-            await self.session.commit()
-            logger.info("Updated dish display order: id=%s, order=%s", dish_id, display_order)
-
-        except Exception as e:
-            await self.session.rollback()
-            logger.error("Error updating dish display order for id %s: %s", dish_id, str(e))
             raise
 
     async def update_dish_status(
