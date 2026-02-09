@@ -72,15 +72,6 @@ async def send_carts_summary_message(
 
         # Добавляем последнюю часть
         if current_text:
-            # Итог по всем пользователям
-            total_summary = (
-                f"\n📊 <b>ИТОГО ПО ЗАКАЗУ #{order.id}</b>\n"
-                f"👥 Участников: {len(user_carts)}\n"
-                f"📦 Всего корзин: {len(order.carts)}\n"
-                f"💰 Общая сумма: <b>{order.total_amount:.2f}</b> ₽\n"
-            )
-
-            current_text += total_summary
             message_parts.append(current_text)
 
         # Отправляем все части сообщения
